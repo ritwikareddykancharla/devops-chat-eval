@@ -3,7 +3,7 @@
 - **Live CloudFront Studio**: https://d1808wferzg45r.cloudfront.net
 - **Live `/api/health` Endpoint**: https://d1808wferzg45r.cloudfront.net/api/health
 - **GitHub Repository**: https://github.com/ritwikareddykancharla/devops-chat-eval
-- **AWS Region & Runtime**: `us-west-2` · Amazon CloudFront + Private S3 (OAC) + AWS Lambda (`python3.12`) + SQLite WAL + Amazon Bedrock (`us.amazon.nova-lite-v1:0` & `us.amazon.nova-micro-v1:0`)
+- **AWS Region & Runtime**: `us-west-2` · Amazon CloudFront + Private S3 (OAC) + AWS Lambda (serverless) + SQLite WAL + Amazon Bedrock (`us.amazon.nova-lite-v1:0` & `us.amazon.nova-micro-v1:0`)
 
 DevOpsChatEval is a serverless AI DevOps assistant and evaluation workbench designed around customer Space isolation, cross-investigation chat memory, pre-deployment diff risk prevention, deterministic Correction-of-Error (COE) fact verification, and position-swapped LLM-as-a-Judge prompt tuning.
 

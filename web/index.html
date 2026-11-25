@@ -1011,7 +1011,7 @@
           <span class="section-kicker">02 · Architecture</span>
           <h2 class="section-title">Architecture</h2>
           <p class="section-desc">
-            Amazon CloudFront serves static assets from private S3 via Origin Access Control and routes <code>/api/*</code> calls to Python 3.12 on AWS Lambda backed by SQLite WAL and Amazon Bedrock. Click any component below to inspect its module, boundary rules, and measured latency.
+            Amazon CloudFront serves static assets from private S3 via Origin Access Control and routes <code>/api/*</code> calls to AWS Lambda backed by SQLite WAL and Amazon Bedrock. Click any component below to inspect its module, boundary rules, and measured latency.
           </p>
         </div>
       </div>
@@ -1042,7 +1042,7 @@
 
           <!-- LAYER 1: EDGE -->
           <path d="M 22,18 Q 610,14 1196,19 Q 1201,92 1195,164 Q 608,168 24,163 Q 19,90 22,18 Z" fill="#FAFAFA" stroke="#71717A" stroke-width="1.6" stroke-dasharray="8 6" />
-          <text x="36" y="41" class="svg-title" font-size="21" font-weight="700" fill="#0F766E">① Browser &amp; Serverless AWS Edge (CloudFront + Private S3 OAC + Python 3.12 Lambda)</text>
+          <text x="36" y="41" class="svg-title" font-size="21" font-weight="700" fill="#0F766E">① Browser &amp; Serverless AWS Edge (CloudFront + Private S3 OAC + AWS Lambda)</text>
 
           <g class="arch-node" data-arch-node="edge-browser" tabindex="0">
             <path d="M 38,55 Q 136,52 234,56 Q 238,96 233,138 Q 135,141 39,137 Q 35,95 38,55 Z" fill="#CCFBF1" />
@@ -1082,7 +1082,7 @@
           <g class="arch-node" data-arch-node="edge-lambda" tabindex="0">
             <path d="M 640,100 Q 775,97 910,101 Q 913,127 909,153 Q 774,156 641,152 Q 637,126 640,100 Z" fill="#FFE8D6" />
             <path class="arch-stroke-main" d="M 640,100 Q 775,97 910,101 Q 913,127 909,153 Q 774,156 641,152 Q 637,126 640,100 Z" fill="none" stroke="#18181B" stroke-width="2" />
-            <text x="775" y="123" text-anchor="middle" class="svg-title" font-size="20" font-weight="700" fill="#18181B">AWS Lambda API (Python 3.12)</text>
+            <text x="775" y="123" text-anchor="middle" class="svg-title" font-size="20" font-weight="700" fill="#18181B">AWS Lambda API</text>
             <text x="775" y="142" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#9A3412">devops_chat_eval/server.py · 512 MB</text>
           </g>
 
@@ -1217,7 +1217,7 @@
           <span class="section-kicker">03 · Implementation</span>
           <h2 class="section-title">Implementation</h2>
           <p class="section-desc">
-            Four modular Python 3.12 subsystems handle multi-tenant Space memory and retrieval, pre-deployment diff risk scoring, verified Correction-of-Error content generation, and position-swapped prompt evaluation.
+            Four modular backend subsystems handle multi-tenant Space memory and retrieval, pre-deployment diff risk scoring, verified Correction-of-Error content generation, and position-swapped prompt evaluation.
           </p>
         </div>
         <span class="tag tag-pass">12 / 12 Unit Tests Passing</span>
@@ -2477,7 +2477,7 @@
           plane: "Layer ① · Browser & Serverless Edge",
           title: "Amazon CloudFront HTTPS CDN",
           module: "infra/deploy_cloudfront.sh · OAC + /api/* Behavior",
-          summary: "Serves static assets from the private S3 bucket over HTTP/2 and HTTP/3 and forwards /api/* requests directly to the Python 3.12 AWS Lambda Function URL on the same origin.",
+          summary: "Serves static assets from the private S3 bucket over HTTP/2 and HTTP/3 and forwards /api/* requests directly to the AWS Lambda Function URL on the same origin.",
           metric: "Single-Origin HTTPS Routing"
         },
         "edge-s3": {
@@ -2489,10 +2489,10 @@
         },
         "edge-lambda": {
           plane: "Layer ① · Browser & Serverless Edge",
-          title: "AWS Lambda Python 3.12 API Origin",
+          title: "AWS Lambda API Origin",
           module: "devops_chat_eval/server.py :: lambda_handler",
           summary: "Stateless serverless compute (512 MB, 30s timeout) serving /api/health, /api/chat, /api/deploy-risk, /api/coe/generate, /api/eval/judge, and /api/benchmarks on demand.",
-          metric: "Python 3.12 · 512 MB · 30s Timeout"
+          metric: "AWS Lambda · 512 MB · 30s Timeout"
         },
         "plane-sqlite": {
           plane: "Layer ② · Space Store, Memory Graph & Diff Gate",
