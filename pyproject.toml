@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "devops-chat-eval"
+version = "1.0.0"
+description = "DevOpsChatEval: Stateful Multi-Turn DevOps Chat, Pre-Deploy Diff Risk Analyzer, Verified COE Postmortem Workflow, and Position-Swapped LLM-as-a-Judge Arena on Amazon Bedrock"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Ritwika Reddy Kancharla" }]
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["devops_chat_eval*"]

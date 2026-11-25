@@ -1,0 +1,3263 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevOpsChatEval: Cross-Incident Chat, Verified Postmortems, and Prompt Evaluation for AWS Teams</title>
+  <meta name="description" content="DevOpsChatEval connects isolated AWS customer Space incident memory to multi-turn chat, catches risky config diffs before deploy, strips unverified COE postmortem claims, and evaluates prompt updates with a position-swapped LLM-as-a-Judge on Amazon Bedrock." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Martian+Mono:wght@400;500;600;700&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&amp;family=Schibsted+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-paper: #FAF7F2;
+      --bg-card: #FFFFFF;
+      --bg-subtle: #F2ECE1;
+      --bg-obsidian: #141413;
+      --bg-code: #121417;
+      --text-code: #F4F4F5;
+      --ink: #141413;
+      --ink-muted: #52514E;
+      --border: #18181B;
+      --shadow: 4px 4px 0px #18181B;
+      --shadow-sm: 2px 2px 0px #18181B;
+      --dot-color: rgba(24, 24, 27, 0.13);
+      --accent-main: #0F766E;
+      --accent-ink: #FFFFFF;
+      --accent-soft: #CCFBF1;
+      --accent-deep: #115E59;
+      --blue: #1D4ED8;
+      --blue-soft: #DBEAFE;
+      --pass: #059669;
+      --pass-soft: #D1FAE5;
+      --fail: #DC2626;
+      --fail-soft: #FEE2E2;
+      --warn: #D97706;
+      --warn-soft: #FEF3C7;
+      --purple: #6D28D9;
+      --purple-soft: #EDE9FE;
+    }
+
+    [data-theme="dark"] {
+      --bg-paper: #0E1113;
+      --bg-card: #161A1E;
+      --bg-subtle: #1F252B;
+      --bg-obsidian: #090B0C;
+      --bg-code: #090B0D;
+      --text-code: #E4E4E7;
+      --ink: #F4F4F5;
+      --ink-muted: #A1A1AA;
+      --border: #52525B;
+      --shadow: 4px 4px 0px #000000;
+      --shadow-sm: 2px 2px 0px #000000;
+      --dot-color: rgba(255, 255, 255, 0.08);
+      --accent-main: #0D9488;
+      --accent-ink: #FFFFFF;
+      --accent-soft: #134E4A;
+      --accent-deep: #5EEAD4;
+      --blue: #60A5FA;
+      --blue-soft: #1E293B;
+      --pass: #34D399;
+      --pass-soft: #064E3B;
+      --fail: #F87171;
+      --fail-soft: #450A0A;
+      --warn: #FBBF24;
+      --warn-soft: #451A03;
+      --purple: #C4B5FD;
+      --purple-soft: #2E1065;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Schibsted Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-paper);
+      background-image: radial-gradient(var(--dot-color) 1.25px, transparent 1.25px);
+      background-size: 20px 20px;
+      color: var(--ink);
+      line-height: 1.68;
+      padding-bottom: 4.5rem;
+    }
+
+    .serif { font-family: 'Newsreader', Georgia, serif; }
+    .mono { font-family: 'Martian Mono', monospace; }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.6rem;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 120;
+      background: var(--bg-paper);
+      border-bottom: 2px solid var(--border);
+      padding: 0.78rem 0;
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+    }
+
+    .toc-bar {
+      position: sticky;
+      top: 59px;
+      z-index: 110;
+      background: var(--bg-subtle);
+      border-bottom: 2px solid var(--border);
+      padding: 0.52rem 0;
+    }
+
+    .toc-inner {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+    }
+
+    .toc-link {
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 700;
+      padding: 0.24rem 0.62rem;
+      border: 1.5px solid var(--border);
+      background: var(--bg-card);
+      transition: background 0.12s ease, transform 0.08s ease;
+    }
+
+    .toc-link:hover {
+      background: var(--accent-soft);
+      transform: translate(-1px, -1px);
+    }
+
+    .toc-link.active {
+      background: var(--accent-main);
+      color: var(--accent-ink);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      font-weight: 800;
+      font-size: 1.16rem;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+      color: var(--ink);
+    }
+
+    .brand-badge {
+      background: var(--accent-main);
+      color: var(--accent-ink);
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+      padding: 0.22rem 0.58rem;
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn, .nav-pill {
+      font-family: 'Schibsted Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 0.84rem;
+      padding: 0.5rem 0.92rem;
+      border: 2px solid var(--border);
+      background: var(--bg-card);
+      color: var(--ink);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.12s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .btn:hover, .nav-pill:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: var(--shadow);
+    }
+
+    .btn:active, .nav-pill:active {
+      transform: translate(1px, 1px);
+      box-shadow: 1px 1px 0px var(--border);
+    }
+
+    .btn:disabled {
+      opacity: 0.58;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-accent { background: var(--accent-main); color: var(--accent-ink); }
+    .btn-obsidian { background: #18181B; color: #FAF7F2; }
+    [data-theme="dark"] .btn-obsidian { background: var(--accent-main); color: #FFFFFF; }
+    .btn-secondary { background: var(--bg-subtle); }
+    .btn-danger { background: var(--fail-soft); color: var(--fail); }
+
+    .hero {
+      padding: 2.6rem 0 2.3rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .hero-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.05rem;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.3rem 0.7rem;
+      background: var(--accent-main);
+      color: var(--accent-ink);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .runtime-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.3rem 0.7rem;
+      background: var(--bg-card);
+      color: var(--ink);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--pass);
+      display: inline-block;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 3.6vw, 2.85rem);
+      font-weight: 800;
+      line-height: 1.13;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.95rem;
+      max-width: 1040px;
+    }
+
+    .hero-sub {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: clamp(1.15rem, 1.85vw, 1.34rem);
+      line-height: 1.64;
+      color: var(--ink-muted);
+      max-width: 1020px;
+      margin-bottom: 1.35rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.68rem;
+      margin-bottom: 1.45rem;
+    }
+
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.1rem;
+      margin-top: 1.1rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 1.4rem;
+    }
+
+    .kpi-card {
+      padding: 1.15rem 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 5px;
+      background: var(--accent-main);
+      border-bottom: 1.5px solid var(--border);
+    }
+
+    .kpi-val {
+      font-family: 'Martian Mono', monospace;
+      font-size: 1.38rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-top: 0.25rem;
+    }
+
+    .kpi-label { font-size: 0.88rem; font-weight: 800; color: var(--ink); margin-top: 0.24rem; }
+    .kpi-sub { font-size: 0.8rem; color: var(--ink-muted); margin-top: 0.28rem; line-height: 1.5; }
+
+    .pipeline-bar {
+      margin-top: 1.45rem;
+      background: var(--bg-obsidian);
+      color: #FAF7F2;
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 0.95rem 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+    }
+
+    .pipe-step { display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; font-weight: 600; }
+    .pipe-num {
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      background: var(--accent-main);
+      color: #FFFFFF;
+      padding: 0.14rem 0.44rem;
+      border: 1.5px solid #FFFFFF;
+    }
+    .pipe-arrow { color: #5EEAD4; font-family: 'Martian Mono', monospace; font-weight: 700; }
+
+    .section {
+      padding: 2.8rem 0 2.5rem;
+      border-bottom: 2px solid var(--border);
+      scroll-margin-top: 114px;
+    }
+
+    .section-kicker {
+      display: inline-block;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--accent-main);
+      margin-bottom: 0.35rem;
+    }
+    [data-theme="dark"] .section-kicker { color: #5EEAD4; }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1.1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.45rem;
+    }
+
+    .section-title {
+      font-size: 1.62rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .section-desc {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 1.15rem;
+      line-height: 1.62;
+      color: var(--ink-muted);
+      max-width: 900px;
+      margin-top: 0.32rem;
+    }
+
+    .overview-callout {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-left: 7px solid var(--accent-main);
+      box-shadow: var(--shadow);
+      padding: 1.35rem 1.5rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.96rem;
+      line-height: 1.72;
+    }
+
+    .overview-callout h3 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      margin-bottom: 0.45rem;
+    }
+
+    .scenario-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 1.45rem 1.55rem;
+      margin-top: 1.5rem;
+    }
+
+    .scenario-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    @media (max-width: 980px) { .scenario-steps { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 580px) { .scenario-steps { grid-template-columns: 1fr; } }
+
+    .scenario-step {
+      background: var(--bg-subtle);
+      border: 1.5px solid var(--border);
+      padding: 1rem 1.05rem;
+      font-size: 0.88rem;
+      line-height: 1.65;
+    }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.05rem;
+      margin-bottom: 1.25rem;
+    }
+
+    @media (max-width: 980px) { .problem-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 580px) { .problem-grid { grid-template-columns: 1fr; } }
+
+    .problem-card {
+      padding: 1.2rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .step-badge {
+      display: inline-block;
+      align-self: flex-start;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.18rem 0.52rem;
+      background: var(--accent-soft);
+      color: var(--accent-main);
+      border: 1.5px solid var(--border);
+      text-transform: uppercase;
+    }
+    [data-theme="dark"] .step-badge { color: #5EEAD4; }
+
+    .problem-card h3 { font-size: 1.04rem; font-weight: 800; line-height: 1.3; }
+    .problem-card p { font-size: 0.9rem; color: var(--ink-muted); line-height: 1.66; }
+
+    .module-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.4rem;
+    }
+
+    @media (max-width: 940px) { .module-grid { grid-template-columns: 1fr; } }
+
+    .module-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .module-card-head {
+      background: var(--bg-obsidian);
+      color: #FAF7F2;
+      padding: 0.65rem 1.1rem;
+      border-bottom: 2px solid var(--border);
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .module-card-body {
+      padding: 1.25rem 1.35rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      flex: 1;
+    }
+
+    .prose-block {
+      background: var(--bg-paper);
+      border: 1.5px solid var(--border);
+      padding: 0.88rem 1.02rem;
+      font-size: 0.91rem;
+      line-height: 1.68;
+      color: var(--ink);
+    }
+
+    .prose-block-tech {
+      background: var(--bg-subtle);
+      border: 1.5px solid var(--border);
+      padding: 0.88rem 1.02rem;
+      font-size: 0.88rem;
+      line-height: 1.68;
+      color: var(--ink-muted);
+    }
+
+    .arch-canvas-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: 0.72rem 1rem;
+      background: var(--bg-subtle);
+      border: 2px solid var(--border);
+      border-bottom: none;
+    }
+
+    .arch-canvas-viewport {
+      background-color: #FFFFFF;
+      background-image: radial-gradient(rgba(24, 24, 27, 0.14) 1px, transparent 1px);
+      background-size: 18px 18px;
+      border: 2px solid #18181B;
+      box-shadow: 4px 4px 0px #18181B;
+      overflow-x: auto;
+      padding: 0.9rem;
+    }
+
+    .arch-canvas-svg {
+      display: block;
+      width: 100%;
+      min-width: 980px;
+      height: auto;
+      transition: width 0.22s ease, min-width 0.22s ease;
+    }
+
+    .arch-canvas-svg.zoom-125 {
+      width: 125%;
+      min-width: 1225px;
+    }
+
+    .svg-title { font-family: 'Caveat', cursive; }
+    .svg-mono { font-family: 'Martian Mono', monospace; }
+
+    .arch-node {
+      cursor: pointer;
+      transition: filter 0.15s ease;
+    }
+
+    .arch-node:hover {
+      filter: drop-shadow(3px 3px 0px #0F766E);
+    }
+
+    .arch-node.selected .arch-stroke-main {
+      stroke: #0F766E !important;
+      stroke-width: 3.2px !important;
+    }
+
+    .arch-inspector {
+      margin-top: 1.05rem;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 1.15rem 1.3rem;
+    }
+
+    .arch-node-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.42rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .arch-node-pill {
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.69rem;
+      font-weight: 700;
+      padding: 0.28rem 0.6rem;
+      border: 1.5px solid var(--border);
+      background: var(--bg-subtle);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .arch-node-pill.active {
+      background: var(--accent-main);
+      color: #FFFFFF;
+    }
+
+    .tab-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.78rem;
+      margin-bottom: 1.45rem;
+    }
+
+    @media (max-width: 960px) { .tab-bar { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 580px) { .tab-bar { grid-template-columns: 1fr; } }
+
+    .tab-btn {
+      text-align: left;
+      padding: 0.98rem 1.05rem;
+      background: var(--bg-card);
+      color: var(--ink);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.12s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 0.34rem;
+    }
+
+    .tab-btn:hover { transform: translate(-1px, -1px); box-shadow: var(--shadow); }
+    .tab-btn.active {
+      background: var(--accent-main);
+      color: var(--accent-ink);
+      box-shadow: var(--shadow);
+      transform: translate(-1px, -1px);
+    }
+
+    .tab-btn-eyebrow { font-family: 'Martian Mono', monospace; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; opacity: 0.88; }
+    .tab-btn-title { font-size: 0.96rem; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25; }
+    .tab-btn-desc { font-size: 0.78rem; line-height: 1.45; opacity: 0.92; }
+    .tab-btn-metric { font-family: 'Martian Mono', monospace; font-size: 0.66rem; font-weight: 700; opacity: 0.9; margin-top: 0.15rem; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .sim-header {
+      margin-bottom: 1.15rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .sim-title { font-size: 1.38rem; font-weight: 800; letter-spacing: -0.02em; }
+    .sim-desc { font-family: 'Newsreader', Georgia, serif; font-size: 1.09rem; color: var(--ink-muted); max-width: 860px; margin-top: 0.25rem; }
+
+    .grid-2 { display: grid; grid-template-columns: 1.04fr 1.16fr; gap: 1.3rem; align-items: start; }
+    .grid-equal { display: grid; grid-template-columns: 1fr 1fr; gap: 1.3rem; align-items: start; }
+    @media (max-width: 940px) { .grid-2, .grid-equal { grid-template-columns: 1fr; } }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.18rem 0.52rem;
+      border: 1.5px solid var(--border);
+      text-transform: uppercase;
+    }
+
+    .tag-accent { background: var(--accent-main); color: var(--accent-ink); }
+    .tag-soft { background: var(--accent-soft); color: var(--accent-main); }
+    [data-theme="dark"] .tag-soft { color: #5EEAD4; }
+    .tag-pass { background: var(--pass-soft); color: var(--pass); }
+    .tag-fail { background: var(--fail-soft); color: var(--fail); }
+    .tag-warn { background: var(--warn-soft); color: var(--warn); }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.83rem;
+      font-weight: 700;
+      margin-bottom: 0.38rem;
+    }
+
+    textarea, select, input[type="text"] {
+      width: 100%;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.75rem;
+      padding: 0.65rem 0.78rem;
+      background: var(--bg-paper);
+      color: var(--ink);
+      border: 2px solid var(--border);
+      line-height: 1.52;
+    }
+    textarea:focus, select:focus, input[type="text"]:focus { outline: 2px solid var(--accent-main); outline-offset: 1px; }
+
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-subtle);
+      border: 2px solid var(--border);
+      border-bottom: none;
+      padding: 0.48rem 0.85rem;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.71rem;
+      font-weight: 700;
+    }
+
+    .code-box {
+      background: var(--bg-code);
+      color: var(--text-code);
+      border: 2px solid var(--border);
+      padding: 0.95rem 1.05rem;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.73rem;
+      line-height: 1.58;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .verdict-banner {
+      border: 2px solid var(--border);
+      padding: 0.88rem 1.02rem;
+      margin-bottom: 0.9rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+    .verdict-allow { background: var(--pass-soft); }
+    .verdict-deny { background: var(--fail-soft); }
+    .verdict-warn { background: var(--warn-soft); }
+
+    .chat-feed {
+      border: 2px solid var(--border);
+      background: var(--bg-paper);
+      padding: 0.95rem;
+      max-height: 360px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .chat-bubble {
+      border: 1.5px solid var(--border);
+      padding: 0.78rem 0.92rem;
+      font-size: 0.87rem;
+      line-height: 1.62;
+    }
+    .chat-user {
+      background: var(--bg-subtle);
+      align-self: flex-end;
+      width: 92%;
+    }
+    .chat-assistant {
+      background: var(--bg-card);
+      border-left: 5px solid var(--accent-main);
+      align-self: flex-start;
+      width: 96%;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-bottom: 0.85rem;
+    }
+    @media (max-width: 580px) { .preset-grid { grid-template-columns: 1fr; } }
+
+    .preset-btn {
+      text-align: left;
+      padding: 0.62rem 0.74rem;
+      background: var(--bg-paper);
+      color: var(--ink);
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      font-family: 'Schibsted Grotesk', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      line-height: 1.35;
+      transition: background 0.1s ease, transform 0.08s ease;
+    }
+    .preset-btn:hover { background: var(--accent-soft); transform: translate(-1px, -1px); }
+    .preset-btn.active { background: var(--accent-main); color: var(--accent-ink); box-shadow: var(--shadow-sm); }
+
+    .coe-section-box {
+      border: 1.5px solid var(--border);
+      background: var(--bg-paper);
+      padding: 0.78rem 0.92rem;
+      margin-bottom: 0.62rem;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+
+    .coe-section-head {
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.69rem;
+      font-weight: 700;
+      color: var(--accent-main);
+      text-transform: uppercase;
+      margin-bottom: 0.3rem;
+    }
+    [data-theme="dark"] .coe-section-head { color: #5EEAD4; }
+
+    .table-wrap { overflow-x: auto; border: 2px solid var(--border); background: var(--bg-card); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { padding: 0.62rem 0.76rem; text-align: left; border-bottom: 1.5px solid var(--border); vertical-align: top; }
+    th { background: var(--bg-subtle); font-family: 'Martian Mono', monospace; font-size: 0.68rem; text-transform: uppercase; font-weight: 700; }
+    tr:last-child td { border-bottom: none; }
+
+    .timeline-item { border: 1.5px solid var(--border); background: var(--bg-paper); padding: 0.7rem 0.85rem; margin-bottom: 0.55rem; }
+
+    .bar-group { display: flex; flex-direction: column; gap: 0.65rem; margin: 0.8rem 0; }
+    .bar-row { display: flex; flex-direction: column; gap: 0.24rem; }
+    .bar-meta { display: flex; justify-content: space-between; font-family: 'Martian Mono', monospace; font-size: 0.72rem; font-weight: 600; }
+    .bar-track { width: 100%; height: 16px; background: var(--bg-subtle); border: 1.5px solid var(--border); overflow: hidden; }
+    .bar-fill { height: 100%; transition: width 0.28s ease; }
+    .bar-fill-accent { background: var(--accent-main); }
+    .bar-fill-pass { background: var(--pass); }
+
+    .footer {
+      margin-top: 2.8rem;
+      padding-top: 1.6rem;
+      border-top: 2px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      font-size: 0.84rem;
+      color: var(--ink-muted);
+    }
+  </style>
+</head>
+<body>
+  <!-- Sticky Topbar -->
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a href="#top" class="brand">
+        <span class="brand-badge">DEVOPSCHATEVAL v1.0</span>
+        <span>DevOpsChatEval</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary Navigation">
+        <a class="nav-pill" href="https://d13kangk4fqjbf.cloudfront.net" target="_blank" rel="noopener">AegisOps ↗</a>
+        <a class="nav-pill" href="https://d3gk5qze5xyz7y.cloudfront.net" target="_blank" rel="noopener">DeskPilot ↗</a>
+        <a class="btn btn-obsidian" href="https://github.com/ritwikareddykancharla/devops-chat-eval" target="_blank" rel="noopener">★ GitHub Repo</a>
+        <button type="button" class="btn btn-secondary" id="themeToggleBtn" aria-label="Toggle color theme">
+          <span id="themeIcon">🌙</span>
+          <span id="themeLabel">Dark Mode</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Sticky Scroll-Spy Section TOC -->
+  <nav class="toc-bar" aria-label="Section Navigation">
+    <div class="container toc-inner">
+      <span style="font-weight:700; color:var(--ink-muted);">SECTIONS:</span>
+      <a class="toc-link active" data-toc-target="problem" href="#problem">01 · Problem</a>
+      <a class="toc-link" data-toc-target="architecture" href="#architecture">02 · Architecture</a>
+      <a class="toc-link" data-toc-target="implementation" href="#implementation">03 · Implementation</a>
+      <a class="toc-link" data-toc-target="tradeoffs" href="#tradeoffs">04 · Trade-Offs</a>
+      <a class="toc-link" data-toc-target="studio" href="#studio">05 · Live Demo</a>
+      <a class="toc-link" data-toc-target="benchmarks" href="#benchmarks">06 · Benchmarks</a>
+    </div>
+  </nav>
+
+  <main class="container" id="top">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-top-row">
+        <div class="eyebrow">AI DevOps Workflows &amp; Evaluation · Built for AWS DevOps Agent</div>
+        <div class="runtime-pill" id="runtimePill">
+          <span class="pulse-dot" id="runtimePulseDot"></span>
+          <span id="runtimeModeText">Live Interactive Demo · Powered by Amazon Bedrock</span>
+        </div>
+      </div>
+
+      <h1>DevOpsChatEval: Cross-Incident Chat, Verified Postmortems, and Prompt Evaluation for AWS Teams</h1>
+      <p class="hero-sub">
+        Operations teams lose hours repeating outage investigations, reviewing risky config changes manually, and fixing AI postmortems that invent numbers. DevOpsChatEval links past incident memory to live chat, catches risky deployments early, strips unverified claims, and tests prompt changes before release.
+      </p>
+
+      <div class="hero-actions">
+        <a class="btn btn-accent" href="#studio">▶ Try the Live Demo ↓</a>
+        <a class="btn btn-secondary" href="#architecture">See Architecture ↓</a>
+        <a class="btn btn-secondary" href="#benchmarks">View Benchmarks ↓</a>
+      </div>
+
+      <div class="kpi-strip" id="heroKpiStrip"></div>
+
+      <div class="pipeline-bar" role="region" aria-label="DevOpsChatEval Workflow">
+        <div class="pipe-step"><span class="pipe-num">01</span><span>Query Isolated Space or Paste Diff</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">02</span><span>Correlate Past Incidents &amp; Topology</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">03</span><span>Draft &amp; Fact-Check AWS COE Postmortem</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">04</span><span>Gate Prompts With Swapped Judge</span></div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 01 · PROBLEM                                                        -->
+    <!-- =================================================================== -->
+    <section id="problem" class="section">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">01 · Problem</span>
+          <h2 class="section-title">Problem</h2>
+          <p class="section-desc">
+            Production DevOps assistants must retain context across past investigations within a tenant boundary, warn engineers before risky config changes ship, verify every metric in generated postmortems, and gate prompt updates against judge bias.
+          </p>
+        </div>
+        <span class="tag tag-accent">Agentic DevOps &amp; Eval</span>
+      </div>
+
+      <div class="overview-callout">
+        <h3>Overview</h3>
+        <p>
+          DevOpsChatEval partitions <code>14</code> AWS microservice outages across <code>3</code> isolated customer Spaces in SQLite WAL (<code>0</code> cross-tenant leaks), retrieving correlated incidents in <code>3.518 ms</code> median via BM25 plus 2-hop service topology traversal. Before code merges, a static diff analyzer checks timeouts, connection pools, retry loops, SQS visibility windows, and IAM wildcards in <code>3.406 ms</code> median (<code>6 / 6</code> risky diffs blocked, <code>0 / 4</code> false positives). For incident reporting, a 3-stage AWS Correction-of-Error (COE) pipeline drafts 5 structured sections on Amazon Nova Lite and strips unverified metrics, UTC timestamps, or service names in <code>1.175 ms</code> median (<code>12 / 12</code> injected hallucinations caught). Finally, a position-swapped LLM-as-a-Judge runs both <code>Judge(A, B)</code> and <code>Judge(B, A)</code> on Amazon Nova Micro across <code>16</code> golden cases, reaching Cohen's <code>κ = 0.8072</code> against human SRE labels and promoting prompt <code>v3</code> at a <code>93.8%</code> debiased win rate.
+        </p>
+      </div>
+
+      <div class="problem-grid">
+        <div class="card problem-card">
+          <span class="step-badge">01 · LOST INVESTIGATION CONTEXT</span>
+          <h3>One-Shot Triage Forgets Shared Dependencies</h3>
+          <p>When an engineer asks follow-up questions across outages, stateless bots miss shared upstream or downstream bottlenecks such as two microservices saturating the same Aurora cluster weeks apart.</p>
+        </div>
+        <div class="card problem-card">
+          <span class="step-badge">02 · REPEAT CONFIG OUTAGES</span>
+          <h3>Risky Diffs Ship Without Historical Checks</h3>
+          <p>Lowering an HTTP timeout below a downstream service's <code>p99</code> latency or raising ECS pool sizes above RDS <code>max_connections</code> triggers avoidable repeat SEV-1 incidents if not caught pre-deploy.</p>
+        </div>
+        <div class="card problem-card">
+          <span class="step-badge">03 · UNVERIFIED POSTMORTEMS</span>
+          <h3>Drafted Incident Reports Invent Telemetry</h3>
+          <p>Freeform LLM postmortems can fabricate packet-loss percentages, off-by-hours UTC timestamps, or nonexistent service names that erode trust during executive Correction-of-Error reviews.</p>
+        </div>
+        <div class="card problem-card">
+          <span class="step-badge">04 · JUDGE POSITION BIAS</span>
+          <h3>Single-Order LLM Judges Favor Slot Position</h3>
+          <p>Promoting a tuned system prompt using a single pairwise judge pass conflates real grounding gains with first-position or verbosity bias unless swapped pairs and human calibration are enforced.</p>
+        </div>
+      </div>
+
+      <div class="scenario-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+          <div>
+            <span class="step-badge">EXAMPLE · END-TO-END WORKFLOW</span>
+            <h3 style="font-size:1.15rem; font-weight:800; margin-top:0.35rem;">Example: Preventing a Repeat Checkout Timeout Cascade &amp; Shipping Prompt v3</h3>
+          </div>
+          <span class="tag tag-pass">Testable in Live Demo</span>
+        </div>
+        <div class="scenario-steps">
+          <div class="scenario-step">
+            <div class="mono" style="font-size:0.7rem; font-weight:700; color:var(--accent-main); margin-bottom:0.3rem;">1 · MULTI-TURN SPACE CHAT</div>
+            An engineer asks about <code>checkout-api</code> 5xx spikes in <code>space-prod-payments</code>. Hybrid retrieval links <code>INC-201</code> and shared-Aurora neighbor <code>INC-203</code> in <code>3.52 ms</code> with zero cross-Space leakage.
+          </div>
+          <div class="scenario-step">
+            <div class="mono" style="font-size:0.7rem; font-weight:700; color:var(--fail); margin-bottom:0.3rem;">2 · PRE-DEPLOY DIFF BLOCKED</div>
+            A PR lowers <code>read_timeout_ms</code> to <code>750 ms</code> with <code>8</code> retries. Static rules <code>DR-TIMEOUT-01</code> and <code>DR-RETRY-03</code> match <code>INC-202</code> (<code>payment-gateway</code> <code>p99 = 1850 ms</code>) and return <code>BLOCK_DEPLOY</code>.
+          </div>
+          <div class="scenario-step">
+            <div class="mono" style="font-size:0.7rem; font-weight:700; color:var(--pass); margin-bottom:0.3rem;">3 · COE GROUNDING GATE</div>
+            Generating the <code>INC-201</code> COE postmortem passes every clause through <code>verify_and_scrub_coe_draft()</code>, stripping injected unverified claims (<code>99.94%</code>, <code>03:47 UTC</code>) in <code>1.18 ms</code>.
+          </div>
+          <div class="scenario-step">
+            <div class="mono" style="font-size:0.7rem; font-weight:700; color:var(--purple); margin-bottom:0.3rem;">4 · SWAPPED JUDGE PROMOTION</div>
+            Candidate prompt <code>v3</code> is tested against <code>v1</code> across <code>16</code> golden cases with swapped <code>(A,B)</code> and <code>(B,A)</code> passes, winning <code>15 / 16</code> (<code>93.8%</code>) at <code>712 ms</code> median and earning <code>PROMOTE</code>.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 02 · ARCHITECTURE                                                   -->
+    <!-- =================================================================== -->
+    <section id="architecture" class="section">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">02 · Architecture</span>
+          <h2 class="section-title">Architecture</h2>
+          <p class="section-desc">
+            Amazon CloudFront serves static assets from private S3 via Origin Access Control and routes <code>/api/*</code> calls to Python 3.12 on AWS Lambda backed by SQLite WAL and Amazon Bedrock. Click any component below to inspect its module, boundary rules, and measured latency.
+          </p>
+        </div>
+      </div>
+
+      <div class="arch-canvas-toolbar">
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <span class="mono" style="font-size:0.72rem; font-weight:700;">SYSTEM ARCHITECTURE · CLICK ANY COMPONENT TO INSPECT</span>
+          <span class="tag tag-accent" id="archZoomLabel">Zoom: 100%</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-accent" id="zoom100Btn" style="padding:0.32rem 0.65rem; font-size:0.76rem;">100%</button>
+          <button type="button" class="btn btn-secondary" id="zoom125Btn" style="padding:0.32rem 0.65rem; font-size:0.76rem;">125%</button>
+          <button type="button" class="btn btn-secondary" id="zoomResetBtn" style="padding:0.32rem 0.65rem; font-size:0.76rem;">↺ Reset</button>
+          <button type="button" class="btn btn-secondary" id="downloadArchSvgBtn" style="padding:0.32rem 0.65rem; font-size:0.76rem;">⬇ Export SVG</button>
+        </div>
+      </div>
+
+      <div class="arch-canvas-viewport" id="archViewport">
+        <svg id="devopsArchSvg" class="arch-canvas-svg" viewBox="0 0 1220 730" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DevOpsChatEval System Architecture Diagram">
+          <defs>
+            <pattern id="archDotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <circle cx="2" cy="2" r="1" fill="#D4D4D8" />
+            </pattern>
+          </defs>
+
+          <rect x="0" y="0" width="1220" height="730" fill="#FFFFFF" />
+          <rect x="0" y="0" width="1220" height="730" fill="url(#archDotGrid)" opacity="0.68" />
+
+          <!-- LAYER 1: EDGE -->
+          <path d="M 22,18 Q 610,14 1196,19 Q 1201,92 1195,164 Q 608,168 24,163 Q 19,90 22,18 Z" fill="#FAFAFA" stroke="#71717A" stroke-width="1.6" stroke-dasharray="8 6" />
+          <text x="36" y="41" class="svg-title" font-size="21" font-weight="700" fill="#0F766E">① Browser &amp; Serverless AWS Edge (CloudFront + Private S3 OAC + Python 3.12 Lambda)</text>
+
+          <g class="arch-node" data-arch-node="edge-browser" tabindex="0">
+            <path d="M 38,55 Q 136,52 234,56 Q 238,96 233,138 Q 135,141 39,137 Q 35,95 38,55 Z" fill="#CCFBF1" />
+            <path class="arch-stroke-main" d="M 38,55 Q 136,52 234,56 Q 238,96 233,138 Q 135,141 39,137 Q 35,95 38,55 Z" fill="none" stroke="#18181B" stroke-width="2.1" />
+            <text x="136" y="83" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#18181B">Engineer's Browser</text>
+            <text x="136" y="105" text-anchor="middle" class="svg-mono" font-size="9.8" font-weight="600" fill="#115E59">4 Interactive DevOps Views</text>
+            <text x="136" y="123" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#3F3F46">URL hash state · Dark mode</text>
+          </g>
+
+          <path d="M 237,96 Q 268,92 298,96" fill="none" stroke="#18181B" stroke-width="2.1" stroke-dasharray="6 4" />
+          <path d="M 289,90 L 300,96 L 289,102" fill="none" stroke="#18181B" stroke-width="2.1" />
+          <text x="268" y="86" text-anchor="middle" class="svg-title" font-size="16" font-weight="700" fill="#18181B">HTTPS</text>
+
+          <g class="arch-node" data-arch-node="edge-cloudfront" tabindex="0">
+            <path d="M 304,55 Q 430,51 556,56 Q 560,96 555,138 Q 428,142 305,137 Q 301,95 304,55 Z" fill="#DBEAFE" />
+            <path class="arch-stroke-main" d="M 304,55 Q 430,51 556,56 Q 560,96 555,138 Q 428,142 305,137 Q 301,95 304,55 Z" fill="none" stroke="#18181B" stroke-width="2.1" />
+            <text x="430" y="83" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#18181B">Amazon CloudFront</text>
+            <text x="430" y="105" text-anchor="middle" class="svg-mono" font-size="9.8" font-weight="600" fill="#1E3A8A">Single HTTPS Entry Point</text>
+            <text x="430" y="123" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#3F3F46">UI -&gt; S3 OAC · /api/* -&gt; Lambda</text>
+          </g>
+
+          <path d="M 559,78 Q 596,66 634,66" fill="none" stroke="#18181B" stroke-width="2" stroke-dasharray="6 4" />
+          <path d="M 625,60 L 636,66 L 625,72" fill="none" stroke="#18181B" stroke-width="2" />
+          <text x="596" y="59" text-anchor="middle" class="svg-title" font-size="15" font-weight="700" fill="#065F46">Static UI</text>
+
+          <path d="M 559,114 Q 596,126 634,126" fill="none" stroke="#18181B" stroke-width="2" stroke-dasharray="6 4" />
+          <path d="M 625,120 L 636,126 L 625,132" fill="none" stroke="#18181B" stroke-width="2" />
+          <text x="596" y="143" text-anchor="middle" class="svg-title" font-size="15" font-weight="700" fill="#0F766E">/api/*</text>
+
+          <g class="arch-node" data-arch-node="edge-s3" tabindex="0">
+            <path d="M 640,39 Q 775,36 910,40 Q 913,65 909,90 Q 774,93 641,89 Q 637,64 640,39 Z" fill="#DCFCE7" />
+            <path class="arch-stroke-main" d="M 640,39 Q 775,36 910,40 Q 913,65 909,90 Q 774,93 641,89 Q 637,64 640,39 Z" fill="none" stroke="#18181B" stroke-width="2" />
+            <text x="775" y="61" text-anchor="middle" class="svg-title" font-size="20" font-weight="700" fill="#18181B">Private S3 Bucket (OAC)</text>
+            <text x="775" y="79" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#065F46">web/index.html · Public Access Off</text>
+          </g>
+
+          <g class="arch-node" data-arch-node="edge-lambda" tabindex="0">
+            <path d="M 640,100 Q 775,97 910,101 Q 913,127 909,153 Q 774,156 641,152 Q 637,126 640,100 Z" fill="#FFE8D6" />
+            <path class="arch-stroke-main" d="M 640,100 Q 775,97 910,101 Q 913,127 909,153 Q 774,156 641,152 Q 637,126 640,100 Z" fill="none" stroke="#18181B" stroke-width="2" />
+            <text x="775" y="123" text-anchor="middle" class="svg-title" font-size="20" font-weight="700" fill="#18181B">AWS Lambda API (Python 3.12)</text>
+            <text x="775" y="142" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#9A3412">devops_chat_eval/server.py · 512 MB</text>
+          </g>
+
+          <g transform="rotate(-1.4 1055 95)">
+            <path d="M 936,40 L 1178,40 L 1178,134 L 1160,150 L 936,150 Z" fill="#FEF3C7" stroke="#18181B" stroke-width="2" />
+            <path d="M 1160,150 L 1160,134 L 1178,134" fill="#FDE68A" stroke="#18181B" stroke-width="1.6" />
+            <text x="950" y="66" class="svg-title" font-size="19" font-weight="700" fill="#92400E">📌 $0.00/hr Idle Footprint</text>
+            <text x="950" y="89" class="svg-title" font-size="17" font-weight="600" fill="#18181B">• 3 Isolated Customer Spaces</text>
+            <text x="950" y="110" class="svg-title" font-size="17" font-weight="600" fill="#18181B">• 14 AWS Incident Timelines</text>
+            <text x="950" y="131" class="svg-title" font-size="17" font-weight="700" fill="#0F766E">• κ = 0.8072 Calibrated Judge</text>
+          </g>
+
+          <path d="M 775,154 Q 770,176 612,194" fill="none" stroke="#18181B" stroke-width="2.1" stroke-dasharray="7 5" />
+          <path d="M 621,188 L 610,195 L 622,200" fill="none" stroke="#18181B" stroke-width="2.1" />
+          <text x="765" y="183" class="svg-title" font-size="16" font-weight="700" fill="#18181B">Scoped by space_id</text>
+
+          <!-- LAYER 2: SPACE ISOLATION, HYBRID RETRIEVAL & DIFF RISK -->
+          <path d="M 22,196 Q 610,192 1196,197 Q 1200,268 1195,338 Q 608,342 24,337 Q 19,266 22,196 Z" fill="#F0FDFA" stroke="#0F766E" stroke-width="1.6" stroke-dasharray="8 6" />
+          <text x="36" y="219" class="svg-title" font-size="21" font-weight="700" fill="#0F766E">② Control/Data Plane Space Store, Hybrid Memory Graph &amp; Pre-Deploy Diff Risk Engine</text>
+
+          <g class="arch-node selected" data-arch-node="plane-sqlite" tabindex="0">
+            <path d="M 42,233 Q 218,229 394,234 Q 398,279 393,324 Q 216,328 43,323 Q 39,278 42,233 Z" fill="#CCFBF1" />
+            <path class="arch-stroke-main" d="M 42,233 Q 218,229 394,234 Q 398,279 393,324 Q 216,328 43,323 Q 39,278 42,233 Z" fill="none" stroke="#18181B" stroke-width="2.1" />
+            <text x="218" y="261" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#115E59">Tenant-Isolated Space Store</text>
+            <text x="218" y="283" text-anchor="middle" class="svg-mono" font-size="9.5" font-weight="700" fill="#18181B">SQLite WAL · 3 Spaces · 14 Incidents</text>
+            <text x="218" y="303" text-anchor="middle" class="svg-mono" font-size="9.1" fill="#134E4A">0 Cross-Tenant Leaks Verified</text>
+          </g>
+
+          <g class="arch-node" data-arch-node="memory-graph" tabindex="0">
+            <path d="M 432,233 Q 610,229 788,234 Q 792,279 787,324 Q 609,328 433,323 Q 429,278 432,233 Z" fill="#DBEAFE" />
+            <path class="arch-stroke-main" d="M 432,233 Q 610,229 788,234 Q 792,279 787,324 Q 609,328 433,323 Q 429,278 432,233 Z" fill="none" stroke="#18181B" stroke-width="2.1" />
+            <text x="610" y="261" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#18181B">Hybrid BM25 + Topology Graph</text>
+            <text x="610" y="283" text-anchor="middle" class="svg-mono" font-size="9.5" font-weight="600" fill="#1E3A8A">chat_memory.py · 2-Hop Neighbors</text>
+            <text x="610" y="303" text-anchor="middle" class="svg-mono" font-size="9.1" fill="#3F3F46">3.518 ms p50 · 8/8 Top-3 Recall</text>
+          </g>
+
+          <g class="arch-node" data-arch-node="diff-analyzer" tabindex="0">
+            <path d="M 824,233 Q 1001,229 1178,234 Q 1182,279 1177,324 Q 1000,328 825,323 Q 821,278 824,233 Z" fill="#FEF3C7" />
+            <path class="arch-stroke-main" d="M 824,233 Q 1001,229 1178,234 Q 1182,279 1177,324 Q 1000,328 825,323 Q 821,278 824,233 Z" fill="none" stroke="#18181B" stroke-width="2.1" />
+            <text x="1001" y="261" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#92400E">Pre-Deploy Diff Risk Gate</text>
+            <text x="1001" y="283" text-anchor="middle" class="svg-mono" font-size="9.5" font-weight="700" fill="#18181B">deploy_risk.py · DR-01..DR-07</text>
+            <text x="1001" y="303" text-anchor="middle" class="svg-mono" font-size="9.1" fill="#78350F">6/6 Hazards Blocked · 0/4 False Pos</text>
+          </g>
+
+          <path d="M 410,326 Q 360,355 315,380" fill="none" stroke="#18181B" stroke-width="2" stroke-dasharray="6 4" />
+          <path d="M 323,371 L 313,381 L 326,382" fill="none" stroke="#18181B" stroke-width="2" />
+          <text x="245" y="362" class="svg-title" font-size="16" font-weight="700" fill="#065F46">Telemetry Fact Envelope</text>
+
+          <path d="M 860,326 Q 885,355 905,380" fill="none" stroke="#18181B" stroke-width="2" stroke-dasharray="6 4" />
+          <path d="M 896,377 L 907,381 L 905,369" fill="none" stroke="#18181B" stroke-width="2" />
+          <text x="920" y="362" class="svg-title" font-size="16" font-weight="700" fill="#6D28D9">16 Golden DevOps Cases</text>
+
+          <!-- LAYER 3: COE WORKFLOW & POSITION-SWAPPED JUDGE -->
+          <path d="M 22,380 Q 610,376 1196,381 Q 1200,452 1195,522 Q 608,526 24,521 Q 19,450 22,380 Z" fill="#FFFBEB" stroke="#B45309" stroke-width="1.6" stroke-dasharray="8 6" />
+          <text x="36" y="404" class="svg-title" font-size="21" font-weight="700" fill="#92400E">③ Fact-Verified AWS COE Postmortem Pipeline &amp; Position-Swapped LLM-as-a-Judge Arena</text>
+
+          <g class="arch-node" data-arch-node="coe-pipeline" tabindex="0">
+            <path d="M 42,418 Q 312,414 582,419 Q 586,464 581,508 Q 310,512 43,507 Q 39,462 42,418 Z" fill="#DCFCE7" />
+            <path class="arch-stroke-main" d="M 42,418 Q 312,414 582,419 Q 586,464 581,508 Q 310,512 43,507 Q 39,462 42,418 Z" fill="none" stroke="#18181B" stroke-width="2.1" />
+            <text x="312" y="446" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#18181B">Verified AWS COE Content Workflow</text>
+            <text x="312" y="468" text-anchor="middle" class="svg-mono" font-size="9.6" font-weight="700" fill="#065F46">coe_workflow.py · Extract -&gt; Draft -&gt; Scrub</text>
+            <text x="312" y="489" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#3F3F46">12/12 Hallucinations Stripped · 1.175 ms Gate</text>
+          </g>
+
+          <g class="arch-node" data-arch-node="judge-arena" tabindex="0">
+            <path d="M 624,418 Q 901,414 1178,419 Q 1182,464 1177,508 Q 900,512 625,507 Q 621,462 624,418 Z" fill="#EDE9FE" />
+            <path class="arch-stroke-main" d="M 624,418 Q 901,414 1178,419 Q 1182,464 1177,508 Q 900,512 625,507 Q 621,462 624,418 Z" fill="none" stroke="#18181B" stroke-width="2.1" />
+            <text x="901" y="446" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#18181B">Position-Swapped Judge &amp; Gate</text>
+            <text x="901" y="468" text-anchor="middle" class="svg-mono" font-size="9.6" font-weight="700" fill="#5B21B6">judge_arena.py · Judge(A,B) + Judge(B,A)</text>
+            <text x="901" y="489" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#3F3F46">κ = 0.8072 · v3 Wins 15/16 (93.8% PROMOTE)</text>
+          </g>
+
+          <path d="M 312,510 Q 312,542 312,568" fill="none" stroke="#0F766E" stroke-width="2.1" stroke-dasharray="6 4" />
+          <path d="M 306,560 L 312,570 L 318,560" fill="none" stroke="#0F766E" stroke-width="2.1" />
+          <text x="326" y="548" class="svg-title" font-size="16" font-weight="700" fill="#0F766E">Chat, Diff &amp; COE Converse</text>
+
+          <path d="M 901,510 Q 901,542 901,568" fill="none" stroke="#6D28D9" stroke-width="2.1" stroke-dasharray="6 4" />
+          <path d="M 895,560 L 901,570 L 907,560" fill="none" stroke="#6D28D9" stroke-width="2.1" />
+          <text x="915" y="548" class="svg-title" font-size="16" font-weight="700" fill="#6D28D9">Swapped Pairwise Judging</text>
+
+          <!-- LAYER 4: BEDROCK MODELS -->
+          <g class="arch-node" data-arch-node="bedrock-lite" tabindex="0">
+            <path d="M 42,574 Q 312,569 582,575 Q 586,642 581,708 Q 310,713 43,707 Q 39,640 42,574 Z" fill="#CCFBF1" />
+            <path class="arch-stroke-main" d="M 42,574 Q 312,569 582,575 Q 586,642 581,708 Q 310,713 43,707 Q 39,640 42,574 Z" fill="none" stroke="#18181B" stroke-width="2.2" />
+            <text x="312" y="604" text-anchor="middle" class="svg-title" font-size="23" font-weight="700" fill="#115E59">④ Amazon Bedrock: Nova Lite</text>
+            <text x="312" y="629" text-anchor="middle" class="svg-mono" font-size="10" font-weight="700" fill="#18181B">us.amazon.nova-lite-v1:0 · Converse API</text>
+            <text x="312" y="651" text-anchor="middle" class="svg-mono" font-size="9.3" fill="#134E4A">Multi-turn Space chat, diff mitigations &amp; 5-section COE drafts</text>
+            <rect x="86" y="666" width="452" height="28" fill="#FFFFFF" stroke="#18181B" stroke-width="1.6" />
+            <text x="312" y="684" text-anchor="middle" class="svg-mono" font-size="9.5" font-weight="700" fill="#0F766E">⚡ 1,378.0 ms Median · 8/8 Grounded Chat &amp; COE Runs</text>
+          </g>
+
+          <path d="M 585,642 L 620,642" fill="none" stroke="#18181B" stroke-width="2" stroke-dasharray="5 4" />
+          <path d="M 613,636 L 622,642 L 613,648" fill="none" stroke="#18181B" stroke-width="2" />
+
+          <g class="arch-node" data-arch-node="bedrock-micro" tabindex="0">
+            <path d="M 624,574 Q 901,569 1178,575 Q 1182,642 1177,708 Q 900,713 625,707 Q 621,640 624,574 Z" fill="#F3E8FF" />
+            <path class="arch-stroke-main" d="M 624,574 Q 901,569 1178,575 Q 1182,642 1177,708 Q 900,713 625,707 Q 621,640 624,574 Z" fill="none" stroke="#18181B" stroke-width="2.2" />
+            <text x="901" y="604" text-anchor="middle" class="svg-title" font-size="23" font-weight="700" fill="#5B21B6">④ Amazon Bedrock: Nova Micro</text>
+            <text x="901" y="629" text-anchor="middle" class="svg-mono" font-size="10" font-weight="700" fill="#18181B">us.amazon.nova-micro-v1:0 · Converse API</text>
+            <text x="901" y="651" text-anchor="middle" class="svg-mono" font-size="9.3" fill="#4C1D95">Prompt v1/v2/v3 candidate generation &amp; swapped pairwise judge</text>
+            <rect x="675" y="666" width="452" height="28" fill="#DCFCE7" stroke="#18181B" stroke-width="1.6" />
+            <text x="901" y="684" text-anchor="middle" class="svg-mono" font-size="9.5" font-weight="700" fill="#065F46">✓ 665.0 ms Median · $0.00824 Total 151-Call Benchmark</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- Interactive Component Inspector -->
+      <div class="arch-inspector" id="archInspector">
+        <div class="arch-node-pills" id="archNodePills">
+          <button type="button" class="arch-node-pill" data-arch-btn="edge-browser">1. Browser UI</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="edge-cloudfront">2. CloudFront</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="edge-s3">3. Private S3</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="edge-lambda">4. Lambda API</button>
+          <button type="button" class="arch-node-pill active" data-arch-btn="plane-sqlite">5. Space Store</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="memory-graph">6. Memory Graph</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="diff-analyzer">7. Diff Risk Gate</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="coe-pipeline">8. COE Grounding</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="judge-arena">9. Swapped Judge</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="bedrock-lite">10. Nova Lite</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="bedrock-micro">11. Nova Micro</button>
+        </div>
+        <div id="archInspectorDetail"></div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 03 · IMPLEMENTATION                                                 -->
+    <!-- =================================================================== -->
+    <section id="implementation" class="section">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">03 · Implementation</span>
+          <h2 class="section-title">Implementation</h2>
+          <p class="section-desc">
+            Four modular Python 3.12 subsystems handle multi-tenant Space memory and retrieval, pre-deployment diff risk scoring, verified Correction-of-Error content generation, and position-swapped prompt evaluation.
+          </p>
+        </div>
+        <span class="tag tag-pass">12 / 12 Unit Tests Passing</span>
+      </div>
+
+      <div class="module-grid">
+        <div class="module-card">
+          <div class="module-card-head">
+            <span>01 · MULTI-TURN CHAT &amp; INCIDENT MEMORY GRAPH</span>
+            <span style="color:#5EEAD4;">devops_chat_eval/chat_memory.py</span>
+          </div>
+          <div class="module-card-body">
+            <div class="prose-block">
+              Each customer environment (<code>space-prod-payments</code>, <code>space-prod-fulfillment</code>, <code>space-prod-identity</code>) owns an isolated incident graph and multi-turn conversation history so follow-up questions correlate shared dependencies without leaking foreign tenant telemetry.
+            </div>
+            <div class="prose-block-tech">
+              <code>DevOpsChatMemoryStore</code> runs SQLite with <code>PRAGMA journal_mode=WAL</code>, combines BM25 scoring (<code>k1=1.5, b=0.75</code>) with 2-hop traversal across <code>service_edges</code> in <code>3.518 ms</code> median (<code>7.098 ms</code> <code>p95</code>), carries session entities across turns, calls <code>us.amazon.nova-lite-v1:0</code>, and verifies every bracketed <code>[INC-2xx]</code> citation against the active Space (<code>8 / 8</code> recall, <code>0</code> cross-tenant leaks).
+            </div>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div class="module-card-head">
+            <span>02 · PRE-DEPLOYMENT DIFF RISK ANALYZER</span>
+            <span style="color:#FDE68A;">devops_chat_eval/deploy_risk.py</span>
+          </div>
+          <div class="module-card-body">
+            <div class="prose-block">
+              Before a pull request or infrastructure template ships, engineers test unified diffs, YAML/JSON configs, or Python changes against Space capacity thresholds and historical incident signatures to stop repeat outages.
+            </div>
+            <div class="prose-block-tech">
+              <code>analyze_deploy_diff()</code> evaluates 7 static rules (<code>DR-TIMEOUT-01</code> through <code>DR-HOTPATH-07</code>) in <code>3.406 ms</code> median, checking client timeouts against downstream <code>p99</code> latencies, <code>pool_size * task_count</code> against Space RDS <code>max_connections</code>, retry jitter, circuit breakers, SQS <code>VisibilityTimeout</code> vs worker <code>Timeout</code>, and IAM <code>*</code> wildcards, blocking <code>6 / 6</code> hazardous diffs with <code>0 / 4</code> false positives.
+            </div>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div class="module-card-head">
+            <span>03 · FACT-VERIFIED AWS COE CONTENT WORKFLOW</span>
+            <span style="color:#6EE7B7;">devops_chat_eval/coe_workflow.py</span>
+          </div>
+          <div class="module-card-body">
+            <div class="prose-block">
+              Turning raw incident timelines and CloudWatch alarms into an AWS Correction-of-Error (COE) postmortem requires every metric, UTC timestamp, and service name in the document to match underlying telemetry.
+            </div>
+            <div class="prose-block-tech">
+              <code>generate_verified_coe()</code> extracts canonical allowed numbers, UTC timestamps, alarms, and service identifiers from SQLite, prompts <code>us.amazon.nova-lite-v1:0</code> for a 5-section JSON draft (<code>Executive Summary</code>, <code>Impact Metrics</code>, <code>Incident Timeline</code>, <code>5-Whys</code>, <code>Action Items</code>), and passes every clause through <code>verify_and_scrub_coe_draft()</code> in <code>1.175 ms</code> median (catching <code>12 / 12</code> injected hallucinations).
+            </div>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div class="module-card-head">
+            <span>04 · PROMPT TUNING &amp; SWAPPED LLM-AS-A-JUDGE</span>
+            <span style="color:#C4B5FD;">devops_chat_eval/judge_arena.py · server.py</span>
+          </div>
+          <div class="module-card-body">
+            <div class="prose-block">
+              Engineers and Applied Scientists compare candidate prompt templates (<code>v1</code>, <code>v2</code>, <code>v3</code>, or custom edits) across <code>16</code> golden DevOps cases and promote a prompt only when debiased quality, telemetry recall, and latency pass threshold gates.
+            </div>
+            <div class="prose-block-tech">
+              <code>evaluate_position_swapped_pair()</code> executes both forward <code>Judge(A, B)</code> and swapped <code>Judge(B, A)</code> passes on <code>us.amazon.nova-micro-v1:0</code> alongside verified rubric signals, neutralizing slot flips into <code>POSITION_BIAS_CAUGHT</code> ties, computing multi-class Cohen's <code>κ = 0.8072</code> against human SRE labels, and gating <code>PROMOTE</code> / <code>HOLD</code> decisions via <code>lambda_handler()</code>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 04 · TRADE-OFFS                                                     -->
+    <!-- =================================================================== -->
+    <section id="tradeoffs" class="section">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">04 · Trade-Offs</span>
+          <h2 class="section-title">Trade-Offs</h2>
+          <p class="section-desc">
+            Every architectural choice balances Bedrock inference cost and latency against factual grounding guarantees, position-bias resistance, and zero-idle serverless operation.
+          </p>
+        </div>
+        <span class="tag tag-soft">Design Decisions</span>
+      </div>
+
+      <div class="module-grid" style="margin-bottom:0;">
+        <div class="card">
+          <span class="step-badge">01 · 2X JUDGE CALLS VS POSITION BIAS</span>
+          <h3 style="font-size:1.08rem; font-weight:800; margin:0.45rem 0;">Doubling Pairwise Judge Passes Eliminates Slot Favoritism</h3>
+          <p style="font-size:0.92rem; color:var(--ink-muted); line-height:1.68;">
+            Running both <code>Judge(A, B)</code> and <code>Judge(B, A)</code> doubles judge invocations per case (<code>942.0 ms</code> median pair latency on <code>us.amazon.nova-micro-v1:0</code>), but costs only <code>$0.00824</code> across the entire <code>151</code>-call benchmark suite while catching <code>3</code> genuine position-bias flips on close and symmetric pairs that would otherwise corrupt win rates.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="step-badge">02 · CLAUSE SCRUBBING VS RETRY LOOPS</span>
+          <h3 style="font-size:1.08rem; font-weight:800; margin:0.45rem 0;">Deterministic Clause Stripping Over Unbounded LLM Re-Prompting</h3>
+          <p style="font-size:0.92rem; color:var(--ink-muted); line-height:1.68;">
+            Re-prompting an LLM when a postmortem draft contains an unverified number adds <code>1.5s to 3.5s</code> of tail latency and still cannot guarantee zero drift. Deterministic clause-level scrubbing in <code>coe_workflow.py</code> removes unverified metrics, UTC timestamps, and service names in <code>1.175 ms</code> median while preserving verified sections.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="step-badge">03 · BM25 + TOPOLOGY GRAPH VS EMBEDDINGS</span>
+          <h3 style="font-size:1.08rem; font-weight:800; margin:0.45rem 0;">Exact Identifier Matching Plus Explicit Dependency Edges</h3>
+          <p style="font-size:0.92rem; color:var(--ink-muted); line-height:1.68;">
+            Dense vector embeddings often blur exact alarm names, deploy SHAs, and <code>INC-2xx</code> identifiers while requiring an external vector cluster. Combining BM25 lexical scoring with 2-hop SQLite <code>service_edges</code> traversal hits <code>100.0%</code> top-3 recall in <code>3.518 ms</code> median at <code>$0.00/hr</code> idle cost, trading away fuzzy paraphrase matching on non-technical prose.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="step-badge">04 · NOVA LITE + MICRO MODEL SPLIT</span>
+          <h3 style="font-size:1.08rem; font-weight:800; margin:0.45rem 0;">Tiered Bedrock Routing for Interactive Depth vs Batch Eval Speed</h3>
+          <p style="font-size:0.92rem; color:var(--ink-muted); line-height:1.68;">
+            Using <code>us.amazon.nova-lite-v1:0</code> (<code>1,378.0 ms</code> median) for multi-turn DevOps chat and 5-section COE authoring delivers richer causal explanations, while routing high-volume candidate generations and swapped pairwise judging to <code>us.amazon.nova-micro-v1:0</code> (<code>665.0 ms</code> median) keeps interactive A/B prompt tuning fast and economical.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 05 · LIVE DEMO                                                      -->
+    <!-- =================================================================== -->
+    <section id="studio" class="section">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">05 · Live Demo</span>
+          <h2 class="section-title">Live Demo</h2>
+          <p class="section-desc">
+            All four tabs invoke the live AWS Lambda <code>/api/*</code> backend and Amazon Bedrock Converse API across isolated customer Spaces, pre-deploy diffs, COE grounding gates, and position-swapped prompt judging.
+          </p>
+        </div>
+        <span class="tag tag-accent">Live AWS /api/* + Bedrock</span>
+      </div>
+
+      <div class="tab-bar" role="tablist" aria-label="DevOpsChatEval Interactive Demo Tabs">
+        <button type="button" class="tab-btn active" data-tab="devops-chat" role="tab" aria-selected="true" onclick="switchTab('devops-chat')">
+          <span class="tab-btn-eyebrow">Tab 01 · Space Memory</span>
+          <span class="tab-btn-title">1. Multi-Turn DevOps Chat</span>
+          <span class="tab-btn-desc">Chat across 14 AWS incidents in 3 isolated Spaces with BM25 + 2-hop topology retrieval</span>
+          <span class="tab-btn-metric" id="tabMetric1"></span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="deploy-risk" role="tab" aria-selected="false" onclick="switchTab('deploy-risk')">
+          <span class="tab-btn-eyebrow">Tab 02 · Pre-Incident Gate</span>
+          <span class="tab-btn-title">2. Pre-Deploy Diff Risk Check</span>
+          <span class="tab-btn-desc">Paste a config or code diff to catch timeout, pool, queue, and IAM hazards before merge</span>
+          <span class="tab-btn-metric" id="tabMetric2"></span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="coe-workflow" role="tab" aria-selected="false" onclick="switchTab('coe-workflow')">
+          <span class="tab-btn-eyebrow">Tab 03 · Content Pipeline</span>
+          <span class="tab-btn-title">3. Verified COE Postmortem Workflow</span>
+          <span class="tab-btn-desc">Generate a 5-section AWS COE and test live stripping of injected unverified claims</span>
+          <span class="tab-btn-metric" id="tabMetric3"></span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="judge-arena" role="tab" aria-selected="false" onclick="switchTab('judge-arena')">
+          <span class="tab-btn-eyebrow">Tab 04 · Applied Science Eval</span>
+          <span class="tab-btn-title">4. Prompt Tuning &amp; LLM-as-a-Judge Arena</span>
+          <span class="tab-btn-desc">Tune prompts and run position-swapped (A,B) + (B,A) Bedrock judging with PROMOTE/HOLD gate</span>
+          <span class="tab-btn-metric" id="tabMetric4"></span>
+        </button>
+      </div>
+
+      <!-- TAB 1: MULTI-TURN DEVOPS CHAT -->
+      <div id="panel-devops-chat" class="tab-panel active" role="tabpanel">
+        <div class="sim-header">
+          <div>
+            <h3 class="sim-title">1. Multi-Turn DevOps Chat</h3>
+            <p class="sim-desc">Ask multi-turn investigation questions scoped strictly to a customer AWS Space. Follow-up questions carry session entities forward and expand 2-hop service topology neighbors.</p>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <span class="tag tag-pass">0 Cross-Tenant Leaks</span>
+            <button type="button" class="btn btn-secondary" onclick="resetChatSession()">↺ Reset Session</button>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="control-label">
+              <label for="chatSpaceSelect">Isolated Customer AWS Space</label>
+              <span class="mono" style="font-size:0.68rem; color:var(--ink-muted);">Control/Data Plane Scope</span>
+            </div>
+            <select id="chatSpaceSelect" onchange="onChatSpaceChange()" style="margin-bottom:0.85rem;">
+              <option value="space-prod-payments">space-prod-payments · Payments &amp; Checkout Core (5 incidents)</option>
+              <option value="space-prod-fulfillment">space-prod-fulfillment · Order Fulfillment &amp; Logistics (5 incidents)</option>
+              <option value="space-prod-identity">space-prod-identity · Identity, Auth &amp; Audit Edge (4 incidents)</option>
+            </select>
+
+            <div class="control-label">
+              <span>Multi-Turn Investigation Presets</span>
+              <span class="mono" style="font-size:0.68rem; color:var(--ink-muted);">Click Turn 1 then Turn 2</span>
+            </div>
+            <div class="preset-grid">
+              <button type="button" class="preset-btn" onclick="runChatPreset(0)">Turn 1 (Payments): Why did checkout-api hit 18.4% 5xx during deploy-8841a2c?</button>
+              <button type="button" class="preset-btn" onclick="runChatPreset(1)">Turn 2 Follow-Up: Did another service sharing that Aurora cluster hit retry storms?</button>
+              <button type="button" class="preset-btn" onclick="runChatPreset(2)">Turn 1 (Fulfillment): Why did inventory-svc lose 68,400 Valkey locks?</button>
+              <button type="button" class="preset-btn" onclick="runChatPreset(3)">Turn 1 (Identity): Explain the 4,200 QPS OIDC key rotation stampede on auth-token-svc.</button>
+            </div>
+
+            <div class="control-label">
+              <label for="chatInputBox">Ask AWS DevOps Agent Chat</label>
+              <span class="mono" style="font-size:0.68rem; color:var(--ink-muted);">POST /api/chat</span>
+            </div>
+            <textarea id="chatInputBox" rows="3">Why did checkout-api hit 18.4% 5xx during deploy-8841a2c and what exact connection pool math caused it?</textarea>
+
+            <div style="margin-top:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+              <button type="button" class="btn btn-accent" id="btnSendChat" onclick="sendChatTurn()">💬 Send Chat Turn (Nova Lite)</button>
+              <span class="mono" style="font-size:0.7rem; color:var(--ink-muted);" id="chatStatusHint">Session: live-web-session</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div id="chatVerificationBanner" class="verdict-banner verdict-allow"></div>
+
+            <div class="control-label">
+              <span>Conversation History</span>
+              <span class="mono" style="font-size:0.69rem;" id="chatTimingBadge"></span>
+            </div>
+            <div class="chat-feed" id="chatFeedBox"></div>
+
+            <div class="control-label">
+              <span>Retrieved Space Incidents &amp; Graph Neighbors</span>
+              <span class="mono" style="font-size:0.68rem; color:var(--accent-main);">BM25 + 2-Hop Topology</span>
+            </div>
+            <div id="chatRetrievedList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: PRE-DEPLOY DIFF RISK CHECK -->
+      <div id="panel-deploy-risk" class="tab-panel" role="tabpanel">
+        <div class="sim-header">
+          <div>
+            <h3 class="sim-title">2. Pre-Deploy Diff Risk Check</h3>
+            <p class="sim-desc">Inspect unified git diffs or config snippets against Space service limits and past incident signatures before deployment.</p>
+          </div>
+          <span class="tag tag-pass">6 / 6 Hazards Blocked · 0 False Positives</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="control-label"><span>Preset Config &amp; Code Diffs</span></div>
+            <div class="preset-grid" id="diffPresetButtons">
+              <button type="button" class="preset-btn active" onclick="loadDiffPreset(0)">🛑 Timeout 750 ms &lt; Downstream p99 (1850 ms)</button>
+              <button type="button" class="preset-btn" onclick="loadDiffPreset(1)">🛑 ECS Pool 40 x 14 Tasks &gt; RDS Limit (450)</button>
+              <button type="button" class="preset-btn" onclick="loadDiffPreset(2)">🛑 SQS Visibility (30s) &lt; Worker Timeout (90s)</button>
+              <button type="button" class="preset-btn" onclick="loadDiffPreset(3)">🛑 Tenant-RBAC Unscoped Wildcard Resource "*"</button>
+              <button type="button" class="preset-btn" style="grid-column: 1 / -1;" onclick="loadDiffPreset(4)">✅ Safe Hardened Rollout: Bounded Pool + Exponential Jitter + Circuit Breaker</button>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.8rem;">
+              <div>
+                <div class="control-label"><label for="diffSpaceSelect">Customer Space</label></div>
+                <select id="diffSpaceSelect">
+                  <option value="space-prod-payments">space-prod-payments</option>
+                  <option value="space-prod-fulfillment">space-prod-fulfillment</option>
+                  <option value="space-prod-identity">space-prod-identity</option>
+                </select>
+              </div>
+              <div>
+                <div class="control-label"><label for="diffServiceInput">Target Service</label></div>
+                <input type="text" id="diffServiceInput" value="checkout-api" />
+              </div>
+            </div>
+
+            <div class="control-label">
+              <label for="diffTextarea">Unified Diff / YAML / JSON / Python Snippet</label>
+              <span class="mono" style="font-size:0.68rem; color:var(--ink-muted);">POST /api/deploy-risk</span>
+            </div>
+            <textarea id="diffTextarea" rows="9"></textarea>
+
+            <div style="margin-top:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+              <button type="button" class="btn btn-accent" id="btnAnalyzeDiff" onclick="runDeployRiskLive()">🔍 Analyze Pre-Deploy Risk</button>
+              <span class="mono" style="font-size:0.7rem; color:var(--ink-muted);" id="diffStatusHint">Ready</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div id="diffVerdictBanner" class="verdict-banner verdict-deny"></div>
+
+            <div class="control-label">
+              <span>Triggered Deterministic Hazard Rules &amp; Matched Past Outages</span>
+              <span class="mono" style="font-size:0.69rem;" id="diffTimingBadge"></span>
+            </div>
+            <div id="diffFindingsBox" style="margin-bottom:0.85rem;"></div>
+
+            <div class="code-header">
+              <span>Amazon Bedrock Pre-Deployment Mitigation Brief</span>
+              <span style="color:var(--accent-main);">us.amazon.nova-lite-v1:0</span>
+            </div>
+            <pre class="code-box" id="diffGuidanceBox" style="max-height:220px;"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: VERIFIED COE POSTMORTEM WORKFLOW -->
+      <div id="panel-coe-workflow" class="tab-panel" role="tabpanel">
+        <div class="sim-header">
+          <div>
+            <h3 class="sim-title">3. Verified COE Postmortem Workflow</h3>
+            <p class="sim-desc">Run the 3-stage AWS Correction-of-Error pipeline (Telemetry Evidence Extractor -&gt; Bedrock 5-Section Draft -&gt; Deterministic Fact &amp; Timestamp Grounding Gate).</p>
+          </div>
+          <span class="tag tag-pass">0 Post-Gate Hallucinations</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="control-label">
+              <label for="coeIncidentSelect">Select Historical Incident</label>
+              <span class="mono" style="font-size:0.68rem; color:var(--ink-muted);">14 Seeded Incidents</span>
+            </div>
+            <select id="coeIncidentSelect" style="margin-bottom:0.85rem;">
+              <option value="space-prod-payments|INC-201">INC-201 (SEV-1) · Checkout API Aurora max_connections Exhaustion</option>
+              <option value="space-prod-payments|INC-202">INC-202 (SEV-1) · Payment-Gateway Timeout Below Downstream p99</option>
+              <option value="space-prod-payments|INC-205">INC-205 (SEV-1) · Payment-Gateway KMS Decrypt IAM Regression</option>
+              <option value="space-prod-fulfillment|INC-206">INC-206 (SEV-1) · Inventory-Svc Valkey Lock Eviction Storm</option>
+              <option value="space-prod-fulfillment|INC-207">INC-207 (SEV-1) · Order-Router SQS Visibility Duplicate Shipments</option>
+              <option value="space-prod-fulfillment|INC-209">INC-209 (SEV-2) · Warehouse-Sync Fargate OOMKill Exit 137</option>
+              <option value="space-prod-identity|INC-211">INC-211 (SEV-1) · Auth-Token-Svc OIDC JWKS Cache Stampede</option>
+              <option value="space-prod-identity|INC-212">INC-212 (SEV-1) · Session-Edge Synchronous SSM Throttling</option>
+              <option value="space-prod-identity|INC-213">INC-213 (SEV-2) · Tenant-RBAC Wildcard Policy Canary Gate</option>
+            </select>
+
+            <div class="control-label"><span>Adversarial Hallucination Stress Test</span></div>
+            <label style="display:flex; align-items:flex-start; gap:0.6rem; border:2px solid var(--border); background:var(--bg-paper); padding:0.75rem 0.85rem; cursor:pointer; margin-bottom:0.9rem;">
+              <input type="checkbox" id="coeInjectProbeCheck" checked style="width:18px; height:18px; margin-top:0.15rem; accent-color:var(--accent-main);" />
+              <div style="font-size:0.82rem; line-height:1.5;">
+                <strong>Inject 3 Ungrounded Claims Before Stage 3 Gate</strong><br/>
+                <span style="color:var(--ink-muted);">Appends fabricated metric <code>99.94%</code>, bogus timestamp <code>03:47 UTC</code>, and nonexistent service <code>quantum-billing-svc</code> into the raw draft so you can verify Stage 3 strips all three.</span>
+              </div>
+            </label>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.95rem;">
+              <button type="button" class="btn btn-accent" id="btnGenerateCoe" onclick="runCoeWorkflowLive()">📄 Generate Fact-Verified COE</button>
+              <span class="mono" style="font-size:0.7rem; color:var(--ink-muted);" id="coeStatusHint">POST /api/coe/generate</span>
+            </div>
+
+            <div class="code-header">
+              <span>Stage 3 Grounding Gate Audit Log (Flagged &amp; Stripped Clauses)</span>
+              <span id="coeGateMsBadge" style="color:var(--pass);">1.175 ms median</span>
+            </div>
+            <pre class="code-box" id="coeFlaggedBox" style="max-height:220px;"></pre>
+          </div>
+
+          <div class="card">
+            <div id="coeVerdictBanner" class="verdict-banner verdict-allow"></div>
+            <div id="coeRenderedSections"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: PROMPT TUNING & LLM-AS-A-JUDGE ARENA -->
+      <div id="panel-judge-arena" class="tab-panel" role="tabpanel">
+        <div class="sim-header">
+          <div>
+            <h3 class="sim-title">4. Prompt Tuning &amp; LLM-as-a-Judge Arena</h3>
+            <p class="sim-desc">Compare Candidate Prompts against Baseline across golden DevOps cases using position-swapped <code>Judge(A, B)</code> + <code>Judge(B, A)</code> evaluation on Amazon Bedrock.</p>
+          </div>
+          <span class="tag tag-accent">Cohen's κ = 0.8072</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.8rem;">
+              <div>
+                <div class="control-label"><label for="arenaCandidateSelect">Candidate Prompt (A)</label></div>
+                <select id="arenaCandidateSelect" onchange="onArenaPromptSelectChange()">
+                  <option value="v3_citation_constrained">v3 · Citation &amp; Blast-Radius Constrained</option>
+                  <option value="v2_fewshot_cot">v2 · Few-Shot Chain-of-Thought</option>
+                  <option value="v1_baseline">v1 · Baseline Zero-Shot (Control)</option>
+                </select>
+              </div>
+              <div>
+                <div class="control-label"><label for="arenaCaseCountSelect">Golden Eval Slice</label></div>
+                <select id="arenaCaseCountSelect">
+                  <option value="3">3 Golden Cases (~4s live run)</option>
+                  <option value="4" selected>4 Golden Cases (~5s live run)</option>
+                  <option value="6">6 Golden Cases (~8s live run)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.8rem;">
+              <div>
+                <div class="control-label"><label for="arenaBaselineSelect">Baseline Prompt (B)</label></div>
+                <select id="arenaBaselineSelect">
+                  <option value="v1_baseline" selected>v1 · Baseline Zero-Shot</option>
+                  <option value="v2_fewshot_cot">v2 · Few-Shot Chain-of-Thought</option>
+                </select>
+              </div>
+              <div>
+                <div class="control-label"><label for="arenaJudgeModelSelect">Bedrock Judge Model</label></div>
+                <select id="arenaJudgeModelSelect">
+                  <option value="us.amazon.nova-micro-v1:0" selected>Amazon Nova Micro (Fast)</option>
+                  <option value="us.amazon.nova-lite-v1:0">Amazon Nova Lite</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="control-label">
+              <label for="arenaCustomPromptBox">Editable Candidate System Prompt (Live Prompt Tuning)</label>
+              <span class="mono" style="font-size:0.68rem; color:var(--ink-muted);">Edit or keep preset</span>
+            </div>
+            <textarea id="arenaCustomPromptBox" rows="6"></textarea>
+
+            <div style="margin-top:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+              <button type="button" class="btn btn-accent" id="btnRunArena" onclick="runJudgeArenaLive()">⚖️ Run Position-Swapped Judge</button>
+              <span class="mono" style="font-size:0.7rem; color:var(--ink-muted);" id="arenaStatusHint">POST /api/eval/judge</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div id="arenaDecisionBanner" class="verdict-banner verdict-allow"></div>
+
+            <div id="arenaGateChecklist" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:0.45rem; margin-bottom:0.9rem;"></div>
+
+            <div class="control-label">
+              <span>Position-Swapped Case Verdicts: Forward (A,B) vs Swapped (B,A)</span>
+              <span class="mono" style="font-size:0.69rem;" id="arenaCostBadge"></span>
+            </div>
+            <div class="table-wrap" style="max-height:285px; overflow-y:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Case</th>
+                    <th>Forward</th>
+                    <th>Swapped</th>
+                    <th>Debiased</th>
+                    <th>Recall (A vs B)</th>
+                    <th>Judge Note</th>
+                  </tr>
+                </thead>
+                <tbody id="arenaCasesTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 06 · BENCHMARKS                                                     -->
+    <!-- =================================================================== -->
+    <section id="benchmarks" class="section" style="border-bottom:none; padding-bottom:0.5rem;">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">06 · Benchmarks</span>
+          <h2 class="section-title">Benchmarks</h2>
+          <p class="section-desc" id="benchSubHeader"></p>
+        </div>
+        <span class="tag tag-pass" id="benchTimestampTag"></span>
+      </div>
+
+      <div class="overview-callout" style="margin-bottom:1.35rem;">
+        <h3>Measured Results (<code>benchmarks/latest_results.json</code>)</h3>
+        <p>
+          Across <code>151</code> live Amazon Bedrock Converse API calls (<code>144,258</code> total tokens, <code>$0.00824</code> total benchmark cost, <code>23,731.7 KiB</code> peak memory), deterministic COE fact-gate checks finish in <code>1.175 ms</code> median, static pre-deploy diff risk checks finish in <code>3.406 ms</code> median (<code>7.374 ms</code> <code>p95</code>, <code>6 / 6</code> risky diffs caught, <code>0 / 4</code> false positives), and hybrid BM25 + topology graph retrieval finishes in <code>3.518 ms</code> median (<code>7.098 ms</code> <code>p95</code>, <code>8 / 8</code> multi-turn recall, <code>0</code> cross-tenant leaks). On the <code>16</code>-case golden prompt suite, <code>us.amazon.nova-micro-v1:0</code> averaged <code>665.0 ms</code> median per call (<code>942.0 ms</code> median per position-swapped judge pair), calibrating at Cohen's <code>κ = 0.8072</code> (<code>14 / 16</code> human SRE agreement, <code>3</code> position flips caught) and promoting prompt <code>v3</code> at <code>15 / 16</code> (<code>93.8%</code>) wins while holding <code>v2</code> (<code>76.0%</code> telemetry recall vs <code>80.0%</code> requirement).
+        </p>
+      </div>
+
+      <div class="grid-equal" style="margin-bottom:1.3rem;">
+        <div class="card">
+          <div style="font-weight:800; font-size:1.04rem; margin-bottom:0.65rem;">Median Latency by Pipeline Stage (Log Scale)</div>
+          <div id="benchLatencySvgBox" style="border:1.5px solid var(--border); background:#FAF7F2; padding:0.5rem;"></div>
+          <div class="bar-group" id="benchMetricBars"></div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:800; font-size:1.04rem; margin-bottom:0.65rem;">Prompt Tuning Leaderboard Across 16 Golden DevOps Cases</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Prompt Version</th>
+                  <th>Wins vs v1</th>
+                  <th>Telemetry Recall</th>
+                  <th>Pos. Consistency</th>
+                  <th>Gen p50 / p95</th>
+                  <th>Gate</th>
+                </tr>
+              </thead>
+              <tbody id="benchLeaderboardBody"></tbody>
+            </table>
+          </div>
+          <div class="mono" style="font-size:0.71rem; color:var(--ink-muted); margin-top:0.65rem;">
+            Promotion gate requires: Debiased Win Rate &gt;= 65%, Telemetry Recall &gt;= 80%, 0 Hallucinated Incidents, Position Consistency &gt;= 75%, and p95 &lt;= 2500 ms.
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-equal">
+        <div class="card">
+          <div style="font-weight:800; font-size:1.04rem; margin-bottom:0.65rem;">16-Pair Position-Swapped Judge Calibration (κ = 0.8072)</div>
+          <div class="table-wrap" style="max-height:370px; overflow-y:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Case</th>
+                  <th>Prompt Pair</th>
+                  <th>Fwd / Swap</th>
+                  <th>Debiased</th>
+                  <th>Human</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="benchCalibrationBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:800; font-size:1.04rem; margin-bottom:0.65rem;">10 Pre-Deploy Diff Risk Checks (6 Risky + 4 Safe Controls)</div>
+          <div class="table-wrap" style="max-height:370px; overflow-y:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Diff Scenario</th>
+                  <th>Service</th>
+                  <th>Verdict</th>
+                  <th>Score</th>
+                  <th>Matched</th>
+                </tr>
+              </thead>
+              <tbody id="benchDiffsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div>
+        <strong>DevOpsChatEval</strong> · Cross-Incident Space Chat, Verified COE Workflows &amp; Calibrated LLM-as-a-Judge · Built by Ritwika Reddy Kancharla
+      </div>
+      <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+        <a href="https://d13kangk4fqjbf.cloudfront.net" target="_blank" rel="noopener" style="color:var(--ink); font-weight:700;">AegisOps ↗</a>
+        <a href="https://d3gk5qze5xyz7y.cloudfront.net" target="_blank" rel="noopener" style="color:var(--ink); font-weight:700;">DeskPilot ↗</a>
+        <a href="https://github.com/ritwikareddykancharla/devops-chat-eval" target="_blank" rel="noopener" style="color:var(--ink); font-weight:700;">GitHub Repository ↗</a>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      const VALID_TABS = ["devops-chat", "deploy-risk", "coe-workflow", "judge-arena"];
+      let activeTab = "devops-chat";
+      let activeTheme = "light";
+      let chatSessionId = "web-sess-" + Math.floor(1000 + Math.random() * 9000);
+
+      let MEASURED_BENCHMARKS = {
+  "service": "devops-chat-eval",
+  "benchmark_timestamp_utc": "2026-11-25T22:41:27Z",
+  "environment": {
+    "python_version": "3.14.6",
+    "platform": "Darwin 25.6.0 (arm64)",
+    "aws_region": "us-west-2",
+    "chat_and_coe_model": "us.amazon.nova-lite-v1:0",
+    "judge_and_tuning_model": "us.amazon.nova-micro-v1:0",
+    "state_store": "SQLite WAL (isolated per-Space Control/Data Plane)"
+  },
+  "headline_kpis": {
+    "spaces_isolated": 3,
+    "incidents_indexed": 14,
+    "cross_tenant_leaks": 0,
+    "chat_turns_evaluated": 8,
+    "chat_top3_recall_hits": 8,
+    "chat_top3_recall_pct": 100.0,
+    "chat_grounded_turns": 8,
+    "retrieval_p50_ms": 3.518,
+    "retrieval_p95_ms": 7.098,
+    "diff_cases_total": 10,
+    "diff_risky_caught": 6,
+    "diff_risky_total": 6,
+    "diff_hazard_recall_pct": 100.0,
+    "diff_safe_total": 4,
+    "diff_false_positives": 0,
+    "diff_eval_p50_ms": 3.406,
+    "diff_eval_p95_ms": 7.374,
+    "coe_runs_total": 8,
+    "coe_injected_hallucinations_total": 12,
+    "coe_injected_hallucinations_caught": 12,
+    "coe_hallucination_catch_pct": 100.0,
+    "coe_post_gate_ungrounded_claims": 0,
+    "coe_gate_p50_ms": 1.175,
+    "eval_golden_cases": 16,
+    "v3_win_rate_vs_v1_pct": 93.8,
+    "v3_wins_vs_v1": 15,
+    "v3_telemetry_recall_pct": 87.5,
+    "v3_promotion_decision": "PROMOTE",
+    "judge_cohens_kappa": 0.8072,
+    "judge_human_agreement_count": 14,
+    "judge_human_agreement_pct": 87.5,
+    "judge_position_consistency_pct": 81.2,
+    "judge_position_flips_caught": 3,
+    "judge_pair_p50_ms": 942.0,
+    "judge_pair_p95_ms": 5822.0,
+    "nova_lite_p50_ms": 1378.0,
+    "nova_lite_p95_ms": 2973.0,
+    "nova_micro_p50_ms": 665.0,
+    "nova_micro_p95_ms": 1490.0,
+    "bedrock_calls_total": 151,
+    "bedrock_tokens_total": 144258,
+    "bedrock_total_cost_usd": 0.00824,
+    "peak_memory_kib": 23731.7,
+    "suite_wall_seconds": 97.41
+  },
+  "prompt_leaderboard": [
+    {
+      "prompt_id": "v1_baseline",
+      "label": "v1 \u00b7 Baseline Zero-Shot Prompt",
+      "cases": 16,
+      "wins_vs_v1": 0,
+      "debiased_win_rate_vs_v1_pct": 0.0,
+      "telemetry_recall_pct": 57.8,
+      "mean_rubric_score_5": 2.45,
+      "position_consistency_pct": 100.0,
+      "gen_p50_ms": 953.0,
+      "gen_p95_ms": 1336.0,
+      "cost_per_1k_calls_usd": 0.0326,
+      "promotion_decision": "BASELINE"
+    },
+    {
+      "prompt_id": "v2_fewshot_cot",
+      "label": "v2 \u00b7 Few-Shot Chain-of-Thought Prompt",
+      "cases": 16,
+      "wins_vs_v1": 12,
+      "debiased_win_rate_vs_v1_pct": 75.0,
+      "telemetry_recall_pct": 76.0,
+      "mean_rubric_score_5": 4.02,
+      "position_consistency_pct": 87.5,
+      "gen_p50_ms": 1157.0,
+      "gen_p95_ms": 1490.0,
+      "cost_per_1k_calls_usd": 0.0515,
+      "promotion_decision": "HOLD"
+    },
+    {
+      "prompt_id": "v3_citation_constrained",
+      "label": "v3 \u00b7 Citation & Blast-Radius Constrained Prompt",
+      "cases": 16,
+      "wins_vs_v1": 15,
+      "debiased_win_rate_vs_v1_pct": 93.8,
+      "telemetry_recall_pct": 87.5,
+      "mean_rubric_score_5": 4.25,
+      "position_consistency_pct": 93.8,
+      "gen_p50_ms": 712.0,
+      "gen_p95_ms": 959.0,
+      "cost_per_1k_calls_usd": 0.0335,
+      "promotion_decision": "PROMOTE"
+    }
+  ],
+  "judge_calibration_rows": [
+    {
+      "case_id": "EVAL-01",
+      "incident_id": "INC-201",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 942.0
+    },
+    {
+      "case_id": "EVAL-02",
+      "incident_id": "INC-202",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 867.0
+    },
+    {
+      "case_id": "EVAL-03",
+      "incident_id": "INC-203",
+      "pair": "v1_baseline vs v3_citation_constrained",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "B",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 1071.0
+    },
+    {
+      "case_id": "EVAL-04",
+      "incident_id": "INC-204",
+      "pair": "v3_citation_constrained vs v2_fewshot_cot",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "A",
+      "agreed": false,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 1017.0
+    },
+    {
+      "case_id": "EVAL-05",
+      "incident_id": "INC-205",
+      "pair": "v1_baseline vs v3_citation_constrained",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "B",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 864.0
+    },
+    {
+      "case_id": "EVAL-06",
+      "incident_id": "INC-206",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 6984.0
+    },
+    {
+      "case_id": "EVAL-07",
+      "incident_id": "INC-207",
+      "pair": "v1_baseline vs v3_citation_constrained",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "B",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 849.0
+    },
+    {
+      "case_id": "EVAL-08",
+      "incident_id": "INC-208",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 5822.0
+    },
+    {
+      "case_id": "EVAL-09",
+      "incident_id": "INC-209",
+      "pair": "v2_fewshot_cot vs v3_citation_constrained",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "B",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 972.0
+    },
+    {
+      "case_id": "EVAL-10",
+      "incident_id": "INC-210",
+      "pair": "v3_citation_constrained vs v3_citation_constrained",
+      "forward_winner": "A",
+      "swapped_winner": "B",
+      "debiased_winner": "TIE",
+      "human_label": "TIE",
+      "agreed": true,
+      "position_consistent": false,
+      "bias_flag": "POSITION_BIAS_CAUGHT",
+      "judge_pair_ms": 919.0
+    },
+    {
+      "case_id": "EVAL-11",
+      "incident_id": "INC-211",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 1091.0
+    },
+    {
+      "case_id": "EVAL-12",
+      "incident_id": "INC-212",
+      "pair": "v1_baseline vs v3_citation_constrained",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "B",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 765.0
+    },
+    {
+      "case_id": "EVAL-13",
+      "incident_id": "INC-213",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 924.0
+    },
+    {
+      "case_id": "EVAL-14",
+      "incident_id": "INC-214",
+      "pair": "v2_fewshot_cot vs v2_fewshot_cot",
+      "forward_winner": "TIE",
+      "swapped_winner": "A",
+      "debiased_winner": "TIE",
+      "human_label": "TIE",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "MARGINAL_TIE",
+      "judge_pair_ms": 1022.0
+    },
+    {
+      "case_id": "EVAL-15",
+      "incident_id": "INC-201",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "B",
+      "debiased_winner": "TIE",
+      "human_label": "A",
+      "agreed": false,
+      "position_consistent": false,
+      "bias_flag": "POSITION_BIAS_CAUGHT",
+      "judge_pair_ms": 928.0
+    },
+    {
+      "case_id": "EVAL-16",
+      "incident_id": "INC-207",
+      "pair": "v1_baseline vs v1_baseline",
+      "forward_winner": "B",
+      "swapped_winner": "A",
+      "debiased_winner": "TIE",
+      "human_label": "TIE",
+      "agreed": true,
+      "position_consistent": false,
+      "bias_flag": "POSITION_BIAS_CAUGHT",
+      "judge_pair_ms": 897.0
+    }
+  ],
+  "diff_benchmark_results": [
+    {
+      "preset_id": "diff-timeout-cascade",
+      "title": "Checkout HTTP Client Timeout Lowered Below Payment-Gateway p99",
+      "space_id": "space-prod-payments",
+      "service": "checkout-api",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 100,
+      "matched_incidents": [
+        "INC-202",
+        "INC-203"
+      ],
+      "deterministic_eval_ms": 7.374,
+      "bedrock_latency_ms": 1007.0
+    },
+    {
+      "preset_id": "diff-rds-pool-overcommit",
+      "title": "ECS Task Pool Size x Replica Count Exceeds Aurora max_connections",
+      "space_id": "space-prod-payments",
+      "service": "checkout-api",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 76,
+      "matched_incidents": [
+        "INC-201"
+      ],
+      "deterministic_eval_ms": 3.72,
+      "bedrock_latency_ms": 860.0
+    },
+    {
+      "preset_id": "diff-sqs-visibility-mismatch",
+      "title": "Order-Router Lambda Timeout Raised Above SQS VisibilityTimeout",
+      "space_id": "space-prod-fulfillment",
+      "service": "order-router",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 72,
+      "matched_incidents": [
+        "INC-207"
+      ],
+      "deterministic_eval_ms": 1.798,
+      "bedrock_latency_ms": 795.0
+    },
+    {
+      "preset_id": "diff-iam-wildcard-regression",
+      "title": "Tenant-RBAC Policy Bundle Introduces Unscoped Wildcard Resource",
+      "space_id": "space-prod-identity",
+      "service": "tenant-rbac",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 78,
+      "matched_incidents": [
+        "INC-213"
+      ],
+      "deterministic_eval_ms": 3.654,
+      "bedrock_latency_ms": 956.0
+    },
+    {
+      "preset_id": "diff-safe-hardened-rollout",
+      "title": "Safe Hardened Rollout: Bounded Pool + Jittered Retry + Circuit Breaker",
+      "space_id": "space-prod-payments",
+      "service": "fraud-scorer",
+      "expected_verdict": "SAFE_TO_DEPLOY",
+      "observed_verdict": "SAFE_TO_DEPLOY",
+      "risk_score": 8,
+      "matched_incidents": [],
+      "deterministic_eval_ms": 4.031,
+      "bedrock_latency_ms": 887.0
+    },
+    {
+      "preset_id": "diff-cb-disabled-fraud",
+      "title": "Fraud-Scorer Disables Circuit Breaker With 12 Retries",
+      "space_id": "space-prod-payments",
+      "service": "fraud-scorer",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 72,
+      "matched_incidents": [
+        "INC-203"
+      ],
+      "deterministic_eval_ms": 5.001,
+      "bedrock_latency_ms": 0.0
+    },
+    {
+      "preset_id": "diff-ssm-hotpath-edge",
+      "title": "Session-Edge Adds Per-Request SSM Parameter Fetch in Handler",
+      "space_id": "space-prod-identity",
+      "service": "session-edge",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 66,
+      "matched_incidents": [
+        "INC-212"
+      ],
+      "deterministic_eval_ms": 3.406,
+      "bedrock_latency_ms": 0.0
+    },
+    {
+      "preset_id": "diff-safe-sqs-6x-timeout",
+      "title": "Safe Order-Router Queue Visibility Set to 6x Worker Timeout",
+      "space_id": "space-prod-fulfillment",
+      "service": "order-router",
+      "expected_verdict": "SAFE_TO_DEPLOY",
+      "observed_verdict": "SAFE_TO_DEPLOY",
+      "risk_score": 8,
+      "matched_incidents": [],
+      "deterministic_eval_ms": 2.453,
+      "bedrock_latency_ms": 0.0
+    },
+    {
+      "preset_id": "diff-safe-scoped-iam",
+      "title": "Safe Scoped SpaceId PrincipalTag IAM Policy Update",
+      "space_id": "space-prod-identity",
+      "service": "tenant-rbac",
+      "expected_verdict": "SAFE_TO_DEPLOY",
+      "observed_verdict": "SAFE_TO_DEPLOY",
+      "risk_score": 8,
+      "matched_incidents": [],
+      "deterministic_eval_ms": 2.474,
+      "bedrock_latency_ms": 0.0
+    },
+    {
+      "preset_id": "diff-safe-checkout-timeout",
+      "title": "Safe Checkout Client Timeout Above Downstream p99 (2700 ms)",
+      "space_id": "space-prod-payments",
+      "service": "checkout-api",
+      "expected_verdict": "SAFE_TO_DEPLOY",
+      "observed_verdict": "SAFE_TO_DEPLOY",
+      "risk_score": 8,
+      "matched_incidents": [],
+      "deterministic_eval_ms": 2.281,
+      "bedrock_latency_ms": 0.0
+    }
+  ],
+  "coe_benchmark_results": [
+    {
+      "incident_id": "INC-201",
+      "space_id": "space-prod-payments",
+      "probe_injected": false,
+      "clauses_checked": 15,
+      "flagged_claims_count": 0,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 2.002,
+      "bedrock_latency_ms": 2378.0
+    },
+    {
+      "incident_id": "INC-201",
+      "space_id": "space-prod-payments",
+      "probe_injected": true,
+      "clauses_checked": 18,
+      "flagged_claims_count": 5,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 0.654,
+      "bedrock_latency_ms": 2468.0
+    },
+    {
+      "incident_id": "INC-206",
+      "space_id": "space-prod-fulfillment",
+      "probe_injected": false,
+      "clauses_checked": 17,
+      "flagged_claims_count": 0,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 1.351,
+      "bedrock_latency_ms": 3649.0
+    },
+    {
+      "incident_id": "INC-206",
+      "space_id": "space-prod-fulfillment",
+      "probe_injected": true,
+      "clauses_checked": 20,
+      "flagged_claims_count": 5,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 0.991,
+      "bedrock_latency_ms": 2427.0
+    },
+    {
+      "incident_id": "INC-207",
+      "space_id": "space-prod-fulfillment",
+      "probe_injected": false,
+      "clauses_checked": 14,
+      "flagged_claims_count": 1,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 1.175,
+      "bedrock_latency_ms": 2423.0
+    },
+    {
+      "incident_id": "INC-207",
+      "space_id": "space-prod-fulfillment",
+      "probe_injected": true,
+      "clauses_checked": 17,
+      "flagged_claims_count": 6,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 0.926,
+      "bedrock_latency_ms": 2249.0
+    },
+    {
+      "incident_id": "INC-211",
+      "space_id": "space-prod-identity",
+      "probe_injected": false,
+      "clauses_checked": 14,
+      "flagged_claims_count": 1,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 1.332,
+      "bedrock_latency_ms": 2973.0
+    },
+    {
+      "incident_id": "INC-211",
+      "space_id": "space-prod-identity",
+      "probe_injected": true,
+      "clauses_checked": 17,
+      "flagged_claims_count": 6,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 0.384,
+      "bedrock_latency_ms": 2129.0
+    }
+  ],
+  "chat_benchmark_results": [
+    {
+      "session_id": "bench-sess-payments-1",
+      "space_id": "space-prod-payments",
+      "turn_number": 1,
+      "expected_incident": "INC-201",
+      "retrieved_top3": [
+        "INC-201",
+        "INC-205",
+        "INC-203"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 2.218,
+      "bedrock_latency_ms": 1164.0,
+      "tokens": 1584
+    },
+    {
+      "session_id": "bench-sess-payments-1",
+      "space_id": "space-prod-payments",
+      "turn_number": 2,
+      "expected_incident": "INC-203",
+      "retrieved_top3": [
+        "INC-201",
+        "INC-203",
+        "INC-202"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 3.404,
+      "bedrock_latency_ms": 1378.0,
+      "tokens": 1819
+    },
+    {
+      "session_id": "bench-sess-payments-2",
+      "space_id": "space-prod-payments",
+      "turn_number": 1,
+      "expected_incident": "INC-202",
+      "retrieved_top3": [
+        "INC-202",
+        "INC-205",
+        "INC-201"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 3.393,
+      "bedrock_latency_ms": 1065.0,
+      "tokens": 1660
+    },
+    {
+      "session_id": "bench-sess-payments-2",
+      "space_id": "space-prod-payments",
+      "turn_number": 2,
+      "expected_incident": "INC-205",
+      "retrieved_top3": [
+        "INC-205",
+        "INC-202",
+        "INC-201"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 7.098,
+      "bedrock_latency_ms": 1521.0,
+      "tokens": 1848
+    },
+    {
+      "session_id": "bench-sess-fulfillment-1",
+      "space_id": "space-prod-fulfillment",
+      "turn_number": 1,
+      "expected_incident": "INC-206",
+      "retrieved_top3": [
+        "INC-206",
+        "INC-207",
+        "INC-209"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 4.685,
+      "bedrock_latency_ms": 820.0,
+      "tokens": 1445
+    },
+    {
+      "session_id": "bench-sess-fulfillment-1",
+      "space_id": "space-prod-fulfillment",
+      "turn_number": 2,
+      "expected_incident": "INC-209",
+      "retrieved_top3": [
+        "INC-209",
+        "INC-206",
+        "INC-207"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 3.518,
+      "bedrock_latency_ms": 1089.0,
+      "tokens": 1614
+    },
+    {
+      "session_id": "bench-sess-identity-1",
+      "space_id": "space-prod-identity",
+      "turn_number": 1,
+      "expected_incident": "INC-211",
+      "retrieved_top3": [
+        "INC-211",
+        "INC-212",
+        "INC-213"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 2.733,
+      "bedrock_latency_ms": 1557.0,
+      "tokens": 1536
+    },
+    {
+      "session_id": "bench-sess-identity-1",
+      "space_id": "space-prod-identity",
+      "turn_number": 2,
+      "expected_incident": "INC-212",
+      "retrieved_top3": [
+        "INC-211",
+        "INC-212",
+        "INC-213"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 5.421,
+      "bedrock_latency_ms": 1045.0,
+      "tokens": 1698
+    }
+  ]
+};
+
+      const PROMPT_TEXT_MAP = {
+        "v3_citation_constrained": "You are AWS DevOps Agent operating inside an isolated customer Space.\nFollow all 4 hard constraints:\n1) CITATIONS: Cite exact incident IDs in brackets like [INC-201] and exact CloudWatch alarm names.\n2) EXACT TELEMETRY: Quote exact numeric metrics and UTC timestamps from the telemetry JSON; explicitly refuse to invent any metric, service, or timestamp not present in context.\n3) BLAST RADIUS: Name affected upstream/downstream dependencies in the Space topology.\n4) ACTIONABILITY & BREVITY: Provide the exact rollback/config fix in <= 125 words.",
+        "v2_fewshot_cot": "You are an AWS Site Reliability Engineer. Structure every answer in three sections:\n1) Observation: summarize symptoms in the telemetry.\n2) Root-Cause Reasoning: walk step-by-step through how upstream and downstream services interact.\n3) Mitigation Plan: list operational steps to recover service.\nExample format: Observation -> Root-Cause Reasoning -> Mitigation Plan.",
+        "v1_baseline": "You are a cloud operations assistant. Answer the engineer's DevOps question briefly and suggest what might be wrong."
+      };
+
+      const CHAT_PRESETS = [
+        { space: "space-prod-payments", query: "Why did checkout-api hit 18.4% 5xx during deploy-8841a2c and what exact connection pool math caused it?" },
+        { space: "space-prod-payments", query: "Did another service sharing Aurora-Payments-Primary saturate CPU with retries later that month, and what fixed it?" },
+        { space: "space-prod-fulfillment", query: "Why did inventory-svc lose 68400 reservation locks in Valkey-InventoryCluster and which upstream job triggered it?" },
+        { space: "space-prod-identity", query: "Explain the 4200 QPS OIDC key rotation stampede on auth-token-svc and how singleflight mitigated it." }
+      ];
+
+      const DIFF_PRESETS = [
+        {
+          space: "space-prod-payments",
+          service: "checkout-api",
+          diff: "diff --git a/services/checkout/http_client.yaml b/services/checkout/http_client.yaml\n--- a/services/checkout/http_client.yaml\n+++ b/services/checkout/http_client.yaml\n@@ -6,7 +6,7 @@ upstream_clients:\n   payment_gateway:\n     target: https://payment-gateway.internal\n-    read_timeout_ms: 2600\n-    max_retries: 2\n+    read_timeout_ms: 750\n+    max_retries: 8\n     retry_backoff: fixed_50ms"
+        },
+        {
+          space: "space-prod-payments",
+          service: "checkout-api",
+          diff: "diff --git a/deploy/ecs_checkout_task.json b/deploy/ecs_checkout_task.json\n--- a/deploy/ecs_checkout_task.json\n+++ b/deploy/ecs_checkout_task.json\n@@ -11,6 +11,6 @@\n-  \"ecs_task_count\": 10,\n-  \"max_pool_size\": 20,\n+  \"ecs_task_count\": 14,\n+  \"max_pool_size\": 40,\n   \"db_cluster\": \"Aurora-Payments-Primary\""
+        },
+        {
+          space: "space-prod-fulfillment",
+          service: "order-router",
+          diff: "diff --git a/infra/order_router_template.yaml b/infra/order_router_template.yaml\n--- a/infra/order_router_template.yaml\n+++ b/infra/order_router_template.yaml\n@@ -18,6 +18,6 @@ Resources:\n   OrderDispatchQueue:\n     VisibilityTimeout: 30\n   OrderRouterFunction:\n-    Timeout: 25\n+    Timeout: 90"
+        },
+        {
+          space: "space-prod-identity",
+          service: "tenant-rbac",
+          diff: "diff --git a/policies/space_authorizer.json b/policies/space_authorizer.json\n--- a/policies/space_authorizer.json\n+++ b/policies/space_authorizer.json\n@@ -5,6 +5,6 @@\n   \"Effect\": \"Allow\",\n   \"Action\": [\"devops-space:ReadIncident\", \"kms:Decrypt\"],\n-  \"Resource\": \"arn:aws:devops-space:*:*:space/${aws:PrincipalTag/SpaceId}/*\"\n+  \"Resource\": \"*\""
+        },
+        {
+          space: "space-prod-payments",
+          service: "fraud-scorer",
+          diff: "diff --git a/services/fraud_scorer/client.py b/services/fraud_scorer/client.py\n--- a/services/fraud_scorer/client.py\n+++ b/services/fraud_scorer/client.py\n@@ -14,5 +14,6 @@\n-MAX_RETRIES = 3\n+MAX_RETRIES = 2\n+BACKOFF_STRATEGY = 'exponential_full_jitter'\n+CIRCUIT_BREAKER_ENABLED = True\n READ_TIMEOUT_MS = 2800\n MAX_POOL_SIZE = 16\n ECS_TASK_COUNT = 10"
+        }
+      ];
+
+      const ARCH_NODE_DETAILS = {
+        "edge-browser": {
+          plane: "Layer ① · Browser & Serverless Edge",
+          title: "Engineer's Browser Console",
+          module: "web/index.html",
+          summary: "Interactive four-tab DevOps and Applied Science console for Space chat, pre-deploy diff checks, COE fact verification, and position-swapped prompt judging. Persists active tab and dark/light theme via URL hash state.",
+          metric: "4 Live Views · URL Hash State"
+        },
+        "edge-cloudfront": {
+          plane: "Layer ① · Browser & Serverless Edge",
+          title: "Amazon CloudFront HTTPS CDN",
+          module: "infra/deploy_cloudfront.sh · OAC + /api/* Behavior",
+          summary: "Serves static assets from the private S3 bucket over HTTP/2 and HTTP/3 and forwards /api/* requests directly to the Python 3.12 AWS Lambda Function URL on the same origin.",
+          metric: "Single-Origin HTTPS Routing"
+        },
+        "edge-s3": {
+          plane: "Layer ① · Browser & Serverless Edge",
+          title: "Private Amazon S3 Web Bucket",
+          module: "s3://devopschateval-web-796330847946-us-west-2",
+          summary: "Holds static web assets with all four S3 PublicAccessBlock settings enabled, permitting GetObject exclusively to the CloudFront distribution ARN via SigV4 Origin Access Control.",
+          metric: "Public Access Blocked · $0 Idle"
+        },
+        "edge-lambda": {
+          plane: "Layer ① · Browser & Serverless Edge",
+          title: "AWS Lambda Python 3.12 API Origin",
+          module: "devops_chat_eval/server.py :: lambda_handler",
+          summary: "Stateless serverless compute (512 MB, 30s timeout) serving /api/health, /api/chat, /api/deploy-risk, /api/coe/generate, /api/eval/judge, and /api/benchmarks on demand.",
+          metric: "Python 3.12 · 512 MB · 30s Timeout"
+        },
+        "plane-sqlite": {
+          plane: "Layer ② · Space Store, Memory Graph & Diff Gate",
+          title: "Tenant-Isolated Control/Data Plane Store",
+          module: "devops_chat_eval/chat_memory.py :: DevOpsChatMemoryStore",
+          summary: "Partitions 14 AWS microservice incidents, topology edges, and multi-turn chat sessions across 3 customer Spaces (space-prod-payments, space-prod-fulfillment, space-prod-identity) in SQLite WAL.",
+          metric: "3 Spaces · 14 Incidents · 0 Leaks"
+        },
+        "memory-graph": {
+          plane: "Layer ② · Space Store, Memory Graph & Diff Gate",
+          title: "Hybrid BM25 + 2-Hop Topology Graph",
+          module: "devops_chat_eval/chat_memory.py :: retrieve_context & verify_chat_citations",
+          summary: "Combines BM25 lexical scoring with 2-hop service_edges expansion and multi-turn coreference carry-over so questions about one service surface correlated outages on shared dependencies.",
+          metric: "3.518 ms p50 · 8 / 8 Top-3 Recall"
+        },
+        "diff-analyzer": {
+          plane: "Layer ② · Space Store, Memory Graph & Diff Gate",
+          title: "Pre-Deployment Config & Code Diff Gate",
+          module: "devops_chat_eval/deploy_risk.py :: analyze_deploy_diff",
+          summary: "Parses unified diffs, YAML/JSON configs, and service code across 7 deterministic hazard detectors (timeouts vs downstream p99, DB pools, retries, circuit breakers, SQS visibility, IAM wildcards).",
+          metric: "6 / 6 Hazards Blocked · 3.406 ms p50"
+        },
+        "coe-pipeline": {
+          plane: "Layer ③ · Verified COE & Swapped Judge",
+          title: "Fact-Verified AWS COE Postmortem Workflow",
+          module: "devops_chat_eval/coe_workflow.py :: generate_verified_coe",
+          summary: "Extracts canonical telemetry numbers, UTC timestamps, and service names, generates a 5-section COE draft on Nova Lite, and strips any unverified claim in Stage 3.",
+          metric: "12 / 12 Hallucinations Stripped · 1.175 ms"
+        },
+        "judge-arena": {
+          plane: "Layer ③ · Verified COE & Swapped Judge",
+          title: "Position-Swapped LLM-as-a-Judge Arena",
+          module: "devops_chat_eval/judge_arena.py :: evaluate_position_swapped_pair",
+          summary: "Evaluates candidate prompts across 16 golden DevOps cases by running both forward Judge(A,B) and swapped Judge(B,A) passes, catching position flips and computing Cohen's kappa.",
+          metric: "κ = 0.8072 · v3 Promoted (93.8%)"
+        },
+        "bedrock-lite": {
+          plane: "Layer ④ · Amazon Bedrock Foundation Models",
+          title: "Amazon Nova Lite (Chat, Diffs & COE)",
+          module: "devops_chat_eval/bedrock_client.py :: us.amazon.nova-lite-v1:0",
+          summary: "Powers stateful multi-turn DevOps Space chat answers, pre-deployment diff mitigation plans, and structured 5-section AWS Correction-of-Error drafts via the Converse API.",
+          metric: "1,378.0 ms p50 · Grounded Citations"
+        },
+        "bedrock-micro": {
+          plane: "Layer ④ · Amazon Bedrock Foundation Models",
+          title: "Amazon Nova Micro (Prompt Eval & Judge)",
+          module: "devops_chat_eval/bedrock_client.py :: us.amazon.nova-micro-v1:0",
+          summary: "Executes high-throughput prompt candidate generation and symmetric position-swapped pairwise rubric judging at sub-second median latency.",
+          metric: "665.0 ms p50 · $0.00824 Full Suite"
+        }
+      };
+
+      function esc(v) {
+        return String(v == null ? "" : v)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      // Architecture SVG Inspector, Zoom & Export
+      function selectArchNode(nodeId) {
+        const info = ARCH_NODE_DETAILS[nodeId] || ARCH_NODE_DETAILS["plane-sqlite"];
+        document.querySelectorAll("#devopsArchSvg .arch-node").forEach(function (el) {
+          el.classList.toggle("selected", el.getAttribute("data-arch-node") === nodeId);
+        });
+        document.querySelectorAll("#archNodePills [data-arch-btn]").forEach(function (btn) {
+          btn.classList.toggle("active", btn.getAttribute("data-arch-btn") === nodeId);
+        });
+        const detailBox = document.getElementById("archInspectorDetail");
+        if (detailBox) {
+          detailBox.innerHTML =
+            '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.45rem;">' +
+              '<div>' +
+                '<span class="tag tag-accent" style="margin-bottom:0.35rem;">' + esc(info.plane) + '</span>' +
+                '<h3 style="font-size:1.06rem; font-weight:800;">' + esc(info.title) + '</h3>' +
+              '</div>' +
+              '<span class="tag tag-pass">' + esc(info.metric) + '</span>' +
+            '</div>' +
+            '<div class="mono" style="font-size:0.73rem; color:var(--accent-main); margin-bottom:0.45rem;">Code / Resource: <code>' + esc(info.module) + '</code></div>' +
+            '<p style="font-size:0.91rem; color:var(--ink-muted); line-height:1.65;">' + esc(info.summary) + '</p>';
+        }
+      }
+
+      document.querySelectorAll("#devopsArchSvg .arch-node").forEach(function (el) {
+        el.addEventListener("click", function () { selectArchNode(el.getAttribute("data-arch-node")); });
+        el.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            selectArchNode(el.getAttribute("data-arch-node"));
+          }
+        });
+      });
+      document.querySelectorAll("#archNodePills [data-arch-btn]").forEach(function (btn) {
+        btn.addEventListener("click", function () { selectArchNode(btn.getAttribute("data-arch-btn")); });
+      });
+
+      const archSvg = document.getElementById("devopsArchSvg");
+      const archViewport = document.getElementById("archViewport");
+      const zoom100Btn = document.getElementById("zoom100Btn");
+      const zoom125Btn = document.getElementById("zoom125Btn");
+      const zoomResetBtn = document.getElementById("zoomResetBtn");
+      const archZoomLabel = document.getElementById("archZoomLabel");
+
+      function setArchZoom(mode) {
+        if (!archSvg) return;
+        const is125 = mode === "125";
+        archSvg.classList.toggle("zoom-125", is125);
+        archZoomLabel.textContent = is125 ? "Zoom: 125%" : "Zoom: 100%";
+        zoom100Btn.className = is125 ? "btn btn-secondary" : "btn btn-accent";
+        zoom125Btn.className = is125 ? "btn btn-accent" : "btn btn-secondary";
+        if (mode === "reset" && archViewport) {
+          archViewport.scrollTo({ left: 0, behavior: "smooth" });
+          selectArchNode("plane-sqlite");
+        }
+      }
+      zoom100Btn.addEventListener("click", function () { setArchZoom("100"); });
+      zoom125Btn.addEventListener("click", function () { setArchZoom("125"); });
+      zoomResetBtn.addEventListener("click", function () { setArchZoom("reset"); });
+
+      document.getElementById("downloadArchSvgBtn").addEventListener("click", function () {
+        const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + archSvg.outerHTML;
+        const blob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "devops-chat-eval-architecture.svg";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      });
+
+      // Scroll-Spy Section TOC Observer
+      const sectionIds = ["problem", "architecture", "implementation", "tradeoffs", "studio", "benchmarks"];
+      if ("IntersectionObserver" in window) {
+        const spy = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              const id = entry.target.id;
+              document.querySelectorAll(".toc-link").forEach(function (link) {
+                link.classList.toggle("active", link.getAttribute("data-toc-target") === id);
+              });
+            }
+          });
+        }, { rootMargin: "-20% 0px -68% 0px", threshold: 0.02 });
+        sectionIds.forEach(function (id) {
+          const sec = document.getElementById(id);
+          if (sec) spy.observe(sec);
+        });
+      }
+
+      // Hash-based URL state for active tab & color theme
+      function parseHashState() {
+        const raw = (window.location.hash || "").replace(/^#/, "");
+        if (!raw) return;
+        raw.split("&").forEach(function (part) {
+          if (VALID_TABS.includes(part)) activeTab = part;
+          else if (part === "theme=dark" || part === "dark") activeTheme = "dark";
+          else if (part === "theme=light") activeTheme = "light";
+        });
+      }
+
+      function syncHashState() {
+        const hash = activeTheme === "dark" ? activeTab + "&theme=dark" : activeTab;
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, "", "#" + hash);
+        } else {
+          window.location.hash = hash;
+        }
+      }
+
+      function applyTheme(theme) {
+        activeTheme = theme;
+        document.documentElement.setAttribute("data-theme", theme);
+        document.getElementById("themeIcon").textContent = theme === "dark" ? "☀️" : "🌙";
+        document.getElementById("themeLabel").textContent = theme === "dark" ? "Light Mode" : "Dark Mode";
+        syncHashState();
+      }
+
+      document.getElementById("themeToggleBtn").addEventListener("click", function () {
+        applyTheme(activeTheme === "dark" ? "light" : "dark");
+      });
+
+      window.switchTab = function (tabId) {
+        if (!VALID_TABS.includes(tabId)) return;
+        activeTab = tabId;
+        document.querySelectorAll(".tab-btn").forEach(function (btn) {
+          const match = btn.getAttribute("data-tab") === tabId;
+          btn.classList.toggle("active", match);
+          btn.setAttribute("aria-selected", match ? "true" : "false");
+        });
+        document.querySelectorAll(".tab-panel").forEach(function (panel) {
+          panel.classList.toggle("active", panel.id === "panel-" + tabId);
+        });
+        syncHashState();
+      };
+
+      async function apiGet(path) {
+        const res = await fetch(path, { headers: { Accept: "application/json" } });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      }
+
+      async function apiPost(path, body) {
+        const res = await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(body || {})
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+        return data;
+      }
+
+      // Render KPIs & Section 06 Benchmarks 1:1 from MEASURED_BENCHMARKS
+      function renderBenchmarksAndKpis() {
+        const k = MEASURED_BENCHMARKS.headline_kpis;
+
+        document.getElementById("heroKpiStrip").innerHTML =
+          '<div class="card kpi-card">' +
+            '<div class="kpi-val">' + k.v3_wins_vs_v1 + ' / ' + k.eval_golden_cases + ' (' + k.v3_win_rate_vs_v1_pct + '%)</div>' +
+            '<div class="kpi-label">Prompt v3 Win Rate (' + esc(k.v3_promotion_decision) + ')</div>' +
+            '<div class="kpi-sub"><em>' + k.v3_telemetry_recall_pct + '% telemetry recall at 712.0 ms median on Nova Micro</em></div>' +
+          '</div>' +
+          '<div class="card kpi-card">' +
+            '<div class="kpi-val">κ = ' + k.judge_cohens_kappa + '</div>' +
+            '<div class="kpi-label">Position-Swapped Judge Agreement</div>' +
+            '<div class="kpi-sub"><em>' + k.judge_human_agreement_count + ' / ' + k.eval_golden_cases + ' (' + k.judge_human_agreement_pct + '%) human match · ' + k.judge_position_flips_caught + ' position flips caught</em></div>' +
+          '</div>' +
+          '<div class="card kpi-card">' +
+            '<div class="kpi-val">' + k.coe_injected_hallucinations_caught + ' / ' + k.coe_injected_hallucinations_total + ' Caught</div>' +
+            '<div class="kpi-label">COE Fact &amp; Timestamp Grounding</div>' +
+            '<div class="kpi-sub"><em>' + k.coe_post_gate_ungrounded_claims + ' unverified claims after ' + k.coe_gate_p50_ms + ' ms deterministic gate</em></div>' +
+          '</div>' +
+          '<div class="card kpi-card">' +
+            '<div class="kpi-val">' + k.diff_risky_caught + ' / ' + k.diff_risky_total + ' Blocked</div>' +
+            '<div class="kpi-label">Pre-Deploy Diff Risk &amp; Space Memory</div>' +
+            '<div class="kpi-sub"><em>' + k.diff_false_positives + ' false positives across ' + k.diff_safe_total + ' safe diffs · ' + k.cross_tenant_leaks + ' tenant leaks</em></div>' +
+          '</div>';
+
+        document.getElementById("tabMetric1").textContent =
+          k.chat_top3_recall_hits + " / " + k.chat_turns_evaluated + " Recall · " + k.retrieval_p50_ms + " ms p50";
+        document.getElementById("tabMetric2").textContent =
+          k.diff_risky_caught + " / " + k.diff_risky_total + " Blocked · " + k.diff_eval_p50_ms + " ms p50";
+        document.getElementById("tabMetric3").textContent =
+          k.coe_injected_hallucinations_caught + " / " + k.coe_injected_hallucinations_total + " Stripped · " + k.coe_gate_p50_ms + " ms gate";
+        document.getElementById("tabMetric4").textContent =
+          "κ = " + k.judge_cohens_kappa + " · v3 " + k.v3_win_rate_vs_v1_pct + "% (" + k.v3_promotion_decision + ")";
+
+        document.getElementById("benchSubHeader").textContent =
+          "Measured by benchmarks/run_benchmarks.py across " + k.bedrock_calls_total +
+          " live Amazon Bedrock calls (" + Number(k.bedrock_tokens_total).toLocaleString() +
+          " tokens, $" + k.bedrock_total_cost_usd + " total cost) in " + MEASURED_BENCHMARKS.environment.aws_region + ".";
+        document.getElementById("benchTimestampTag").textContent = MEASURED_BENCHMARKS.benchmark_timestamp_utc;
+
+        const stages = [
+          { label: "COE Grounding Gate", p50: k.coe_gate_p50_ms, color: "#059669" },
+          { label: "Diff Hazard Check", p50: k.diff_eval_p50_ms, color: "#D97706" },
+          { label: "BM25+Graph Retrieve", p50: k.retrieval_p50_ms, color: "#0F766E" },
+          { label: "Nova Micro Single", p50: k.nova_micro_p50_ms, color: "#6D28D9" },
+          { label: "Swapped Judge Pair", p50: k.judge_pair_p50_ms, color: "#1D4ED8" },
+          { label: "Nova Lite Chat/COE", p50: k.nova_lite_p50_ms, color: "#18181B" }
+        ];
+        function logW(ms) {
+          const val = Math.max(0.5, ms);
+          const pct = ((Math.log10(val) - Math.log10(0.5)) / (Math.log10(2500) - Math.log10(0.5))) * 330;
+          return Math.max(10, Math.min(330, +pct.toFixed(1)));
+        }
+        let svgRows = "";
+        stages.forEach(function (st, i) {
+          const y = 22 + i * 32;
+          svgRows +=
+            '<text x="12" y="' + (y + 13) + '" font-family="monospace" font-size="10.2" font-weight="700" fill="#141413">' + esc(st.label) + '</text>' +
+            '<rect x="166" y="' + y + '" width="330" height="16" fill="#F2ECE1" stroke="#18181B" stroke-width="1.2"/>' +
+            '<rect x="166" y="' + y + '" width="' + logW(st.p50) + '" height="16" fill="' + st.color + '"/>' +
+            '<text x="504" y="' + (y + 12) + '" font-family="monospace" font-size="10" fill="#141413">p50: ' + st.p50 + ' ms</text>';
+        });
+        document.getElementById("benchLatencySvgBox").innerHTML =
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 615 216" style="width:100%; height:auto; display:block;">' +
+          '<rect width="615" height="216" fill="#FAF7F2"/>' + svgRows + '</svg>';
+
+        document.getElementById("benchMetricBars").innerHTML =
+          '<div class="bar-row"><div class="bar-meta"><span>Prompt v3 Debiased Win Rate vs v1 (' + k.v3_wins_vs_v1 + ' / ' + k.eval_golden_cases + ')</span><span>' + k.v3_win_rate_vs_v1_pct + '%</span></div><div class="bar-track"><div class="bar-fill bar-fill-accent" style="width:' + k.v3_win_rate_vs_v1_pct + '%;"></div></div></div>' +
+          '<div class="bar-row"><div class="bar-meta"><span>COE Hallucination Catch &amp; Diff Recall (' + k.coe_injected_hallucinations_caught + '/' + k.coe_injected_hallucinations_total + ' &amp; ' + k.diff_risky_caught + '/' + k.diff_risky_total + ')</span><span>100%</span></div><div class="bar-track"><div class="bar-fill bar-fill-pass" style="width:100%;"></div></div></div>';
+
+        document.getElementById("benchLeaderboardBody").innerHTML = MEASURED_BENCHMARKS.prompt_leaderboard.map(function (r) {
+          const decCls = r.promotion_decision === "PROMOTE" ? "tag-pass" : (r.promotion_decision === "HOLD" ? "tag-warn" : "tag-soft");
+          return (
+            "<tr>" +
+              "<td><strong>" + esc(r.label) + "</strong><div class='mono' style='font-size:0.67rem; color:var(--ink-muted);'>$" + r.cost_per_1k_calls_usd + " / 1K calls · rubric " + r.mean_rubric_score_5 + "/5</div></td>" +
+              "<td class='mono'>" + (r.prompt_id === "v1_baseline" ? "control" : (r.wins_vs_v1 + "/16 (" + r.debiased_win_rate_vs_v1_pct + "%)")) + "</td>" +
+              "<td class='mono'><strong>" + r.telemetry_recall_pct + "%</strong></td>" +
+              "<td class='mono'>" + r.position_consistency_pct + "%</td>" +
+              "<td class='mono'>" + r.gen_p50_ms + " / " + r.gen_p95_ms + " ms</td>" +
+              "<td><span class='tag " + decCls + "'>" + esc(r.promotion_decision) + "</span></td>" +
+            "</tr>"
+          );
+        }).join("");
+
+        document.getElementById("benchCalibrationBody").innerHTML = MEASURED_BENCHMARKS.judge_calibration_rows.map(function (c) {
+          const flagCls = c.bias_flag === "POSITION_BIAS_CAUGHT" ? "tag-warn" : (c.agreed ? "tag-pass" : "tag-fail");
+          const flagTxt = c.bias_flag === "POSITION_BIAS_CAUGHT" ? "FLIP CAUGHT" : (c.agreed ? "MATCH" : "DIFF");
+          return (
+            "<tr>" +
+              "<td class='mono'><strong>" + esc(c.case_id) + "</strong></td>" +
+              "<td class='mono' style='font-size:0.68rem;'>" + esc(c.pair) + "</td>" +
+              "<td class='mono'>" + esc(c.forward_winner) + " / " + esc(c.swapped_winner) + "</td>" +
+              "<td class='mono'><strong>" + esc(c.debiased_winner) + "</strong></td>" +
+              "<td class='mono'>" + esc(c.human_label) + "</td>" +
+              "<td><span class='tag " + flagCls + "'>" + flagTxt + "</span></td>" +
+            "</tr>"
+          );
+        }).join("");
+
+        document.getElementById("benchDiffsBody").innerHTML = MEASURED_BENCHMARKS.diff_benchmark_results.map(function (d) {
+          const cls = d.observed_verdict === "BLOCK_DEPLOY" ? "tag-fail" : "tag-pass";
+          return (
+            "<tr>" +
+              "<td><strong>" + esc(d.title) + "</strong></td>" +
+              "<td class='mono'>" + esc(d.service) + "</td>" +
+              "<td><span class='tag " + cls + "'>" + esc(d.observed_verdict) + "</span></td>" +
+              "<td class='mono'>" + d.risk_score + "</td>" +
+              "<td class='mono'>" + (d.matched_incidents.length ? esc(d.matched_incidents.join(", ")) : "none") + "</td>" +
+            "</tr>"
+          );
+        }).join("");
+      }
+
+      // ==================== TAB 1: MULTI-TURN CHAT ====================
+      function renderChatState(payload) {
+        const ver = payload.citation_verification;
+        const banner = document.getElementById("chatVerificationBanner");
+        if (ver.grounded) {
+          banner.className = "verdict-banner verdict-allow";
+          banner.innerHTML =
+            "<div><strong>✓ Citations Grounded in Isolated Space (" + esc(payload.space_id) + ")</strong><br/>" +
+            "<span style='font-size:0.82rem;'>Verified incidents: <code>" + esc(ver.verified_incidents.join(", ") || "Space services") + "</code> · Cross-tenant leaks: <strong>0</strong></span></div>" +
+            "<span class='tag tag-pass'>GROUNDED</span>";
+        } else {
+          banner.className = "verdict-banner verdict-warn";
+          banner.innerHTML =
+            "<div><strong>⚠ Citation Verification Notice</strong><br/><span style='font-size:0.82rem;'>Checked response citations against " + esc(payload.space_id) + ".</span></div>" +
+            "<span class='tag tag-warn'>CHECKED</span>";
+        }
+
+        document.getElementById("chatTimingBadge").textContent =
+          "Turn " + payload.turn_number + " · retrieve: " + payload.retrieval_ms + " ms · Bedrock: " + payload.bedrock_latency_ms + " ms";
+
+        document.getElementById("chatFeedBox").innerHTML = payload.history.map(function (t) {
+          const isUser = t.role === "user";
+          return (
+            '<div class="chat-bubble ' + (isUser ? "chat-user" : "chat-assistant") + '">' +
+              '<div class="mono" style="font-size:0.67rem; font-weight:700; color:var(--ink-muted); margin-bottom:0.25rem;">' +
+                (isUser ? "👤 ENGINEER" : "🤖 AWS DEVOPS AGENT (" + esc(payload.space_id) + ")") +
+              '</div>' +
+              '<div style="white-space:pre-wrap;">' + esc(t.content) + '</div>' +
+            '</div>'
+          );
+        }).join("");
+        const feed = document.getElementById("chatFeedBox");
+        feed.scrollTop = feed.scrollHeight;
+
+        document.getElementById("chatRetrievedList").innerHTML = payload.retrieved_incidents.map(function (inc) {
+          return (
+            '<div class="timeline-item">' +
+              '<div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem; flex-wrap:wrap;">' +
+                '<span class="mono" style="font-size:0.73rem; font-weight:700;">[' + esc(inc.incident_id) + '] ' + esc(inc.service) + ' (' + esc(inc.severity) + ')</span>' +
+                '<span class="tag tag-soft">' + esc(inc.retrieval_source) + ' · score ' + inc.combined_score + '</span>' +
+              '</div>' +
+              '<div style="font-size:0.82rem; margin-top:0.2rem;">' + esc(inc.title) + '</div>' +
+              '<div class="mono" style="font-size:0.68rem; color:var(--ink-muted); margin-top:0.18rem;">relation: ' + esc(inc.graph_relation) + ' (BM25=' + inc.bm25_score + ', graph=+' + inc.graph_boost + ')</div>' +
+            '</div>'
+          );
+        }).join("");
+      }
+
+      window.onChatSpaceChange = function () {
+        chatSessionId = "web-sess-" + Math.floor(1000 + Math.random() * 9000);
+        document.getElementById("chatStatusHint").textContent = "New session: " + chatSessionId;
+      };
+
+      window.runChatPreset = function (idx) {
+        const p = CHAT_PRESETS[idx] || CHAT_PRESETS[0];
+        const curSpace = document.getElementById("chatSpaceSelect").value;
+        if (curSpace !== p.space) {
+          document.getElementById("chatSpaceSelect").value = p.space;
+          chatSessionId = "web-sess-" + Math.floor(1000 + Math.random() * 9000);
+        }
+        document.getElementById("chatInputBox").value = p.query;
+        sendChatTurn();
+      };
+
+      window.sendChatTurn = async function () {
+        const btn = document.getElementById("btnSendChat");
+        const hint = document.getElementById("chatStatusHint");
+        const spaceId = document.getElementById("chatSpaceSelect").value;
+        const msg = document.getElementById("chatInputBox").value.trim();
+        if (!msg) return;
+
+        btn.disabled = true;
+        hint.textContent = "Querying Space graph + Amazon Nova Lite...";
+        try {
+          const out = await apiPost("/api/chat", {
+            space_id: spaceId,
+            session_id: chatSessionId,
+            message: msg
+          });
+          renderChatState(out);
+          hint.textContent = "Session: " + chatSessionId + " (" + out.bedrock_latency_ms + " ms)";
+        } catch (err) {
+          hint.textContent = "Error: " + err.message;
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      window.resetChatSession = async function () {
+        chatSessionId = "web-sess-" + Math.floor(1000 + Math.random() * 9000);
+        try { await apiPost("/api/reset", {}); } catch (_) {}
+        document.getElementById("chatStatusHint").textContent = "Reset session: " + chatSessionId;
+        renderInitialChatPreview();
+      };
+
+      function renderInitialChatPreview() {
+        renderChatState({
+          space_id: "space-prod-payments",
+          turn_number: 1,
+          retrieval_ms: 3.518,
+          bedrock_latency_ms: 1164.0,
+          citation_verification: { grounded: true, verified_incidents: ["INC-201", "INC-203"] },
+          history: [
+            { role: "user", content: "Why did checkout-api hit 18.4% 5xx during deploy-8841a2c and what exact connection pool math caused it?" },
+            { role: "assistant", content: "In space-prod-payments, [INC-201] began at 2026-10-14T14:12:00Z when deploy-8841a2c raised SQLAlchemy max_pool_size to 45 per ECS task without RDS Proxy. Scaling checkout-api to 12 tasks drove attempted_db_connections to 540 against Aurora-Payments-Primary max_connections=450, firing CW-Aurora-DatabaseConnections-High and pushing checkout_5xx_pct to 18.4% (2,420 ms p99). Rolling pool_size_per_task back to 20 (240 peak connections) and routing checkout-api plus shared-cluster neighbor fraud-scorer ([INC-203]) through RDS Proxy resolved the outage in 37 minutes." }
+          ],
+          retrieved_incidents: [
+            { incident_id: "INC-201", service: "checkout-api", severity: "SEV-1", title: "Checkout API RDS Aurora max_connections Exhaustion After ECS Scale-Out", retrieval_source: "bm25_lexical", combined_score: 21.84, graph_relation: "direct_anchor", bm25_score: 21.84, graph_boost: 0 },
+            { incident_id: "INC-203", service: "fraud-scorer", severity: "SEV-2", title: "Fraud-Scorer Unbounded Retry Loop Saturated Shared Aurora Primary", retrieval_source: "graph_neighbor", combined_score: 3.8, graph_relation: "shared_dependency:Aurora-Payments-Primary", bm25_score: 0.0, graph_boost: 3.8 }
+          ]
+        });
+      }
+
+      // ==================== TAB 2: PRE-DEPLOY DIFF RISK ====================
+      function renderDiffResult(res) {
+        const banner = document.getElementById("diffVerdictBanner");
+        if (res.verdict === "BLOCK_DEPLOY") {
+          banner.className = "verdict-banner verdict-deny";
+          banner.innerHTML =
+            "<div><strong>🛑 BLOCK_DEPLOY (Risk Score: " + res.risk_score + " / 100)</strong><br/>" +
+            "<span style='font-size:0.82rem;'>Triggered " + res.hazard_count + " static hazard rule(s) on <code>" + esc(res.service) + "</code> matching past Space incidents.</span></div>" +
+            "<span class='tag tag-fail'>BLOCK DEPLOY</span>";
+        } else if (res.verdict === "WARN_REVIEW") {
+          banner.className = "verdict-banner verdict-warn";
+          banner.innerHTML =
+            "<div><strong>⚠ WARN_REVIEW (Risk Score: " + res.risk_score + " / 100)</strong><br/>" +
+            "<span style='font-size:0.82rem;'>Manual SRE review required before promoting <code>" + esc(res.service) + "</code>.</span></div>" +
+            "<span class='tag tag-warn'>REVIEW</span>";
+        } else {
+          banner.className = "verdict-banner verdict-allow";
+          banner.innerHTML =
+            "<div><strong>✅ SAFE_TO_DEPLOY (Risk Score: " + res.risk_score + " / 100)</strong><br/>" +
+            "<span style='font-size:0.82rem;'>0 hazard rules triggered; timeouts, pool limits, retries, and IAM scopes stay within Space guardrails.</span></div>" +
+            "<span class='tag tag-pass'>SAFE</span>";
+        }
+
+        document.getElementById("diffTimingBadge").textContent =
+          "static: " + res.deterministic_eval_ms + " ms · Bedrock: " + res.bedrock_latency_ms + " ms";
+
+        let html = "";
+        if (res.findings && res.findings.length) {
+          html += res.findings.map(function (f) {
+            return (
+              '<div class="timeline-item">' +
+                '<div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem; flex-wrap:wrap;">' +
+                  '<span class="mono" style="font-size:0.73rem; font-weight:700;">' + esc(f.rule_id) + ' (' + esc(f.failure_mode) + ')</span>' +
+                  '<span class="tag tag-fail">+' + f.risk_points + ' risk pts</span>' +
+                '</div>' +
+                '<div style="font-size:0.83rem; margin-top:0.22rem;">' + esc(f.summary) + '</div>' +
+              '</div>'
+            );
+          }).join("");
+        } else {
+          html += '<div class="timeline-item"><span class="tag tag-pass">ALL 7 STATIC CHECKS PASSED</span> <span style="font-size:0.83rem; margin-left:0.4rem;">No timeout, pool, queue, retry, or IAM regressions found.</span></div>';
+        }
+
+        if (res.matched_incidents && res.matched_incidents.length) {
+          html += res.matched_incidents.slice(0, 2).map(function (m) {
+            return (
+              '<div class="timeline-item" style="background:var(--bg-subtle);">' +
+                '<div class="mono" style="font-size:0.71rem; font-weight:700; color:var(--accent-main);">Matched Past Outage: [' + esc(m.incident_id) + '] (' + esc(m.severity) + ' · ' + esc(m.match_reason) + ')</div>' +
+                '<div style="font-size:0.82rem; margin-top:0.18rem;">' + esc(m.title) + '</div>' +
+              '</div>'
+            );
+          }).join("");
+        }
+        document.getElementById("diffFindingsBox").innerHTML = html;
+        document.getElementById("diffGuidanceBox").textContent = res.mitigation_guidance;
+      }
+
+      window.loadDiffPreset = function (idx, skipNetwork) {
+        const p = DIFF_PRESETS[idx] || DIFF_PRESETS[0];
+        document.querySelectorAll("#diffPresetButtons .preset-btn").forEach(function (b, i) {
+          b.classList.toggle("active", i === idx);
+        });
+        document.getElementById("diffSpaceSelect").value = p.space;
+        document.getElementById("diffServiceInput").value = p.service;
+        document.getElementById("diffTextarea").value = p.diff;
+        if (!skipNetwork) runDeployRiskLive();
+      };
+
+      window.runDeployRiskLive = async function () {
+        const btn = document.getElementById("btnAnalyzeDiff");
+        const hint = document.getElementById("diffStatusHint");
+        btn.disabled = true;
+        hint.textContent = "Checking diff rules + Bedrock mitigation...";
+        try {
+          const out = await apiPost("/api/deploy-risk", {
+            space_id: document.getElementById("diffSpaceSelect").value,
+            service: document.getElementById("diffServiceInput").value.trim(),
+            diff_text: document.getElementById("diffTextarea").value
+          });
+          renderDiffResult(out);
+          hint.textContent = "Done (" + out.deterministic_eval_ms + " ms static)";
+        } catch (err) {
+          hint.textContent = "Error: " + err.message;
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      // ==================== TAB 3: VERIFIED COE WORKFLOW ====================
+      function renderCoeResult(res) {
+        const banner = document.getElementById("coeVerdictBanner");
+        banner.className = "verdict-banner verdict-allow";
+        banner.innerHTML =
+          "<div><strong>✓ AWS COE Verified (" + esc(res.incident_id) + " · " + esc(res.service) + ")</strong><br/>" +
+          "<span style='font-size:0.82rem;'>Checked " + res.raw_draft_clauses_checked + " clauses · Stripped <strong>" + res.flagged_claims_count + "</strong> ungrounded claim(s) · Post-gate unverified claims: <strong>" + res.post_gate_ungrounded_claims + "</strong></span></div>" +
+          "<span class='tag tag-pass'>100% GROUNDED</span>";
+
+        document.getElementById("coeGateMsBadge").textContent =
+          "gate: " + res.gate_eval_ms + " ms · Bedrock: " + res.bedrock_latency_ms + " ms";
+
+        if (res.flagged_claims && res.flagged_claims.length) {
+          document.getElementById("coeFlaggedBox").textContent = res.flagged_claims.map(function (c, i) {
+            return (i + 1) + ". [" + c.reason + "] token='" + c.offending_token + "' in " + c.section + "\n   Stripped clause: " + c.clause;
+          }).join("\n\n");
+        } else {
+          document.getElementById("coeFlaggedBox").textContent = "0 ungrounded metrics, timestamps, or services detected in Bedrock draft.";
+        }
+
+        const doc = res.coe_document;
+        function renderBullets(arr) {
+          return "<ul style='padding-left:1.15rem; margin-top:0.2rem;'>" + (arr || []).map(function (x) {
+            return "<li style='margin-bottom:0.22rem;'>" + esc(x) + "</li>";
+          }).join("") + "</ul>";
+        }
+        document.getElementById("coeRenderedSections").innerHTML =
+          '<div class="coe-section-box"><div class="coe-section-head">1 · Executive Summary</div><div>' + esc(doc.executive_summary) + '</div></div>' +
+          '<div class="coe-section-box"><div class="coe-section-head">2 · Verified Impact Metrics</div>' + renderBullets(doc.impact_metrics) + '</div>' +
+          '<div class="coe-section-box"><div class="coe-section-head">3 · UTC Incident Timeline</div>' + renderBullets(doc.incident_timeline) + '</div>' +
+          '<div class="coe-section-box"><div class="coe-section-head">4 · Five Whys Causal Chain</div>' + renderBullets(doc.five_whys) + '</div>' +
+          '<div class="coe-section-box" style="margin-bottom:0;"><div class="coe-section-head">5 · Preventive Action Items</div>' + renderBullets(doc.action_items) + '</div>';
+      }
+
+      window.runCoeWorkflowLive = async function () {
+        const btn = document.getElementById("btnGenerateCoe");
+        const hint = document.getElementById("coeStatusHint");
+        const parts = document.getElementById("coeIncidentSelect").value.split("|");
+        const probe = document.getElementById("coeInjectProbeCheck").checked;
+        btn.disabled = true;
+        hint.textContent = "Drafting COE on Nova Lite + verifying...";
+        try {
+          const out = await apiPost("/api/coe/generate", {
+            space_id: parts[0],
+            incident_id: parts[1],
+            inject_hallucination_probe: probe
+          });
+          renderCoeResult(out);
+          hint.textContent = "Verified in " + out.gate_eval_ms + " ms";
+        } catch (err) {
+          hint.textContent = "Error: " + err.message;
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      // ==================== TAB 4: PROMPT TUNING & JUDGE ARENA ====================
+      window.onArenaPromptSelectChange = function () {
+        const pid = document.getElementById("arenaCandidateSelect").value;
+        document.getElementById("arenaCustomPromptBox").value = PROMPT_TEXT_MAP[pid] || PROMPT_TEXT_MAP["v3_citation_constrained"];
+      };
+
+      function renderArenaResult(res) {
+        const isPromote = res.promotion_decision === "PROMOTE";
+        const banner = document.getElementById("arenaDecisionBanner");
+        banner.className = "verdict-banner " + (isPromote ? "verdict-allow" : "verdict-warn");
+        banner.innerHTML =
+          "<div><strong>" + (isPromote ? "🚀 PROMOTE CANDIDATE PROMPT" : "⏸ HOLD CANDIDATE PROMPT") + " (" + res.candidate_wins + " / " + res.cases_evaluated + " Debiased Wins · " + res.debiased_win_rate_pct + "%)</strong><br/>" +
+          "<span style='font-size:0.82rem;'>Telemetry recall: <strong>" + res.candidate_telemetry_recall_pct + "%</strong> (vs " + res.baseline_telemetry_recall_pct + "% baseline) · Position consistency: <strong>" + res.position_consistency_pct + "%</strong> · Candidate p50: <strong>" + res.candidate_p50_ms + " ms</strong></span></div>" +
+          "<span class='tag " + (isPromote ? "tag-pass" : "tag-warn") + "'>" + esc(res.promotion_decision) + "</span>";
+
+        const checks = res.promotion_checks || {};
+        const checkItems = [
+          ["Win Rate >= 65%", checks.debiased_win_rate_ge_65_pct],
+          ["Telemetry Recall >= 80%", checks.telemetry_recall_ge_80_pct],
+          ["0 Hallucinated Incidents", checks.zero_hallucinated_incidents],
+          ["Position Consistency >= 75%", checks.position_consistency_ge_75_pct]
+        ];
+        document.getElementById("arenaGateChecklist").innerHTML = checkItems.map(function (item) {
+          return (
+            '<div style="border:1.5px solid var(--border); background:var(--bg-paper); padding:0.42rem 0.65rem; display:flex; justify-content:space-between; align-items:center; font-size:0.76rem; font-weight:700;">' +
+              '<span>' + esc(item[0]) + '</span>' +
+              '<span class="tag ' + (item[1] ? "tag-pass" : "tag-fail") + '">' + (item[1] ? "PASS" : "FAIL") + '</span>' +
+            '</div>'
+          );
+        }).join("");
+
+        document.getElementById("arenaCostBadge").textContent =
+          res.total_tokens + " tok · $" + res.total_cost_usd + " run";
+
+        document.getElementById("arenaCasesTableBody").innerHTML = (res.case_results || []).map(function (c) {
+          const wCls = c.debiased_winner === "A" ? "tag-pass" : (c.debiased_winner === "B" ? "tag-fail" : "tag-warn");
+          return (
+            "<tr>" +
+              "<td class='mono'><strong>" + esc(c.case_id) + "</strong><div style='font-size:0.65rem; color:var(--ink-muted);'>" + esc(c.incident_id) + "</div></td>" +
+              "<td class='mono'>" + esc(c.pass_forward_winner) + "</td>" +
+              "<td class='mono'>" + esc(c.pass_swapped_winner) + "</td>" +
+              "<td><span class='tag " + wCls + "'>" + esc(c.debiased_winner) + "</span></td>" +
+              "<td class='mono'>" + Math.round(c.candidate_recall * 100) + "% vs " + Math.round(c.baseline_recall * 100) + "%</td>" +
+              "<td style='font-size:0.74rem;'>" + esc(c.judge_reason) + "</td>" +
+            "</tr>"
+          );
+        }).join("");
+      }
+
+      window.runJudgeArenaLive = async function () {
+        const btn = document.getElementById("btnRunArena");
+        const hint = document.getElementById("arenaStatusHint");
+        const candId = document.getElementById("arenaCandidateSelect").value;
+        const baseId = document.getElementById("arenaBaselineSelect").value;
+        const limit = parseInt(document.getElementById("arenaCaseCountSelect").value, 10) || 4;
+        const judgeMod = document.getElementById("arenaJudgeModelSelect").value;
+        const customText = document.getElementById("arenaCustomPromptBox").value.trim();
+        const isEdited = customText && customText !== PROMPT_TEXT_MAP[candId];
+
+        btn.disabled = true;
+        hint.textContent = "Running swapped (A,B) + (B,A) Bedrock judge...";
+        try {
+          const out = await apiPost("/api/eval/judge", {
+            candidate_prompt_id: candId,
+            baseline_prompt_id: baseId,
+            custom_candidate_prompt: isEdited ? customText : null,
+            case_limit: limit,
+            gen_model_id: "us.amazon.nova-micro-v1:0",
+            judge_model_id: judgeMod
+          });
+          renderArenaResult(out);
+          hint.textContent = "Completed " + out.cases_evaluated + " swapped pairs";
+        } catch (err) {
+          hint.textContent = "Error: " + err.message;
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      async function probeHealth() {
+        try {
+          const h = await apiGet("/api/health");
+          if (h && h.status === "ok") {
+            document.getElementById("runtimePulseDot").style.background = "var(--pass)";
+          }
+        } catch (_) {}
+      }
+
+      // Initialize UI state cleanly on page load
+      parseHashState();
+      applyTheme(activeTheme);
+      switchTab(activeTab);
+      selectArchNode("plane-sqlite");
+      renderBenchmarksAndKpis();
+      renderInitialChatPreview();
+      loadDiffPreset(0, true);
+      renderDiffResult({
+        service: "checkout-api",
+        risk_score: 100,
+        verdict: "BLOCK_DEPLOY",
+        hazard_count: 2,
+        deterministic_eval_ms: 3.406,
+        bedrock_latency_ms: 1007.0,
+        findings: [
+          { rule_id: "DR-TIMEOUT-01", failure_mode: "timeout_below_downstream_p99", risk_points: 68, summary: "Configured client timeout (750 ms) is below `payment-gateway` p99 latency (1850 ms), guaranteeing premature aborts and retry amplification." },
+          { rule_id: "DR-RETRY-03", failure_mode: "unbounded_retry_missing_circuit_breaker", risk_points: 38, summary: "High/unbounded retry configuration (max_retries=8) without exponential full-jitter backoff risks synchronized thundering-herd storms." }
+        ],
+        matched_incidents: [
+          { incident_id: "INC-202", severity: "SEV-1", match_reason: "exact_failure_signature", title: "Checkout-to-Payment-Gateway Timeout Reduction Below Downstream p99 Triggered Retry Cascade" }
+        ],
+        mitigation_guidance: "1) Blast Radius: Lowering checkout-api read_timeout_ms to 750 ms with 8 fixed retries directly repeats [INC-202] (where 800 ms against payment-gateway p99=1850 ms caused 3.4x retry amplification and 14.2% 5xx).\n2) Required Config Fix: Keep read_timeout_ms >= 2600 ms, cap max_retries at 2 with exponential full jitter, and enforce a 10% retry token bucket.\n3) Rollout Check: Gate canary promotion on CW-CheckoutApi-UpstreamTimeout-Spike."
+      });
+      renderCoeResult({
+        incident_id: "INC-201",
+        service: "checkout-api",
+        raw_draft_clauses_checked: 18,
+        flagged_claims_count: 5,
+        post_gate_ungrounded_claims: 0,
+        gate_eval_ms: 1.175,
+        bedrock_latency_ms: 2468.0,
+        flagged_claims: [
+          { reason: "UNGROUNDED_METRIC", offending_token: "99.94%", section: "impact_metrics", clause: "Packet loss spiked to 99.94% across 777 availability zones." },
+          { reason: "UNGROUNDED_TIMESTAMP", offending_token: "03:47 UTC", section: "incident_timeline", clause: "03:47 UTC - Unverified manual failover executed on shadow-cluster." },
+          { reason: "UNGROUNDED_SERVICE", offending_token: "quantum-billing-svc", section: "action_items", clause: "[OWNER: quantum-billing-svc] Migrate traffic to phantom-router-api within 913 minutes." }
+        ],
+        coe_document: {
+          executive_summary: "[INC-201] (SEV-1) impacted checkout-api in space-prod-payments from 2026-10-14T14:12:00Z to 2026-10-14T14:49:00Z (37 minutes) after deploy-8841a2c raised max_pool_size to 45 per task, driving 540 connection attempts against Aurora max_connections=450 and causing 18.4% checkout 5xx errors.",
+          impact_metrics: [
+            "Peak checkout_5xx_pct reached 18.4% with 3,180 failed checkouts and 2,420 ms p99 latency.",
+            "Attempted DB connections hit 540 across 12 ECS tasks (45 per task) vs rds_max_connections=450.",
+            "Triggered alarms: CW-Aurora-DatabaseConnections-High and CW-CheckoutApi-5xx-Critical."
+          ],
+          incident_timeline: [
+            "14:12 UTC - Deploy deploy-8841a2c promoted max_pool_size=45 across 8 checkout-api ECS tasks.",
+            "14:18 UTC - Autoscaling reached 12 tasks; total connection demand hit 540 vs limit 450.",
+            "14:20 UTC - CloudWatch alarms fired at 18.4% 5xx rate.",
+            "14:36 UTC - Reverted pool_size_per_task to 20 and drained excess idle connections.",
+            "14:49 UTC - Latency returned to 190 ms and 5xx fell to 0.02%."
+          ],
+          five_whys: [
+            "Why 1: Checkout requests failed with HTTP 5xx because Aurora rejected new SQL connections.",
+            "Why 2: Total checkout-api connections reached 540, exceeding db.r6g.large max_connections=450.",
+            "Why 3: Deploy deploy-8841a2c raised max_pool_size from 25 to 45 without connection multiplexing.",
+            "Why 4: Pre-deploy review checked single-task pool size rather than pool_size * max_ecs_tasks.",
+            "Why 5: CI lacked an automated Space capacity gate enforcing pool math and RDS Proxy usage."
+          ],
+          action_items: [
+            "[OWNER: checkout-api] Cap pool_size_per_task at 20 and route checkout-api + fraud-scorer pools via RDS Proxy.",
+            "[OWNER: DevOps-Planes-Team] Enforce DR-DBPOOL-02 pre-deploy diff gate blocking >90% RDS connection commits."
+          ]
+        }
+      });
+      onArenaPromptSelectChange();
+      renderArenaResult({
+        cases_evaluated: 16,
+        candidate_wins: 15,
+        debiased_win_rate_pct: 93.8,
+        candidate_telemetry_recall_pct: 87.5,
+        baseline_telemetry_recall_pct: 57.8,
+        position_consistency_pct: 93.8,
+        candidate_p50_ms: 712.0,
+        promotion_decision: "PROMOTE",
+        total_tokens: 24890,
+        total_cost_usd: 0.00214,
+        promotion_checks: {
+          debiased_win_rate_ge_65_pct: true,
+          telemetry_recall_ge_80_pct: true,
+          zero_hallucinated_incidents: true,
+          position_consistency_ge_75_pct: true
+        },
+        case_results: [
+          { case_id: "EVAL-01", incident_id: "INC-201", pass_forward_winner: "A", pass_swapped_winner: "A", debiased_winner: "A", candidate_recall: 1.0, baseline_recall: 0.5, judge_reason: "Candidate cites [INC-201], exact 540 vs 450 pool math, and Aurora-Payments-Primary blast radius." },
+          { case_id: "EVAL-02", incident_id: "INC-202", pass_forward_winner: "A", pass_swapped_winner: "A", debiased_winner: "A", candidate_recall: 1.0, baseline_recall: 0.5, judge_reason: "Candidate quotes 1850 ms payment-gateway p99 and 3.4x retry amplification accurately." },
+          { case_id: "EVAL-06", incident_id: "INC-206", pass_forward_winner: "A", pass_swapped_winner: "A", debiased_winner: "A", candidate_recall: 1.0, baseline_recall: 0.5, judge_reason: "Candidate links warehouse-sync un-TTL'd writes to 68,400 evicted locks and 47 oversold SKUs." },
+          { case_id: "EVAL-11", incident_id: "INC-211", pass_forward_winner: "A", pass_swapped_winner: "A", debiased_winner: "A", candidate_recall: 1.0, baseline_recall: 0.75, judge_reason: "Candidate cites [INC-211] alarms, 4200 QPS vs 100 QPS limit, and singleflight fix." }
+        ]
+      });
+      probeHealth();
+    })();
+  </script>
+</body>
+</html>

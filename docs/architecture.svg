@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1220 710" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DevOpsChatEval System Architecture Diagram">
+  <defs>
+    <pattern id="dotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="#D4D4D8" />
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="1220" height="710" fill="#FAF7F2" />
+  <rect x="0" y="0" width="1220" height="710" fill="url(#dotGrid)" opacity="0.7" />
+
+  <!-- Layer 1: Edge -->
+  <rect x="24" y="20" width="1172" height="140" fill="#FFFFFF" stroke="#18181B" stroke-width="2" stroke-dasharray="8 5" />
+  <text x="40" y="46" font-family="sans-serif" font-size="16" font-weight="800" fill="#0F766E">1. Browser &amp; Serverless AWS Edge (CloudFront + Private S3 OAC + Python 3.12 Lambda)</text>
+
+  <rect x="44" y="62" width="230" height="80" fill="#CCFBF1" stroke="#18181B" stroke-width="2" />
+  <text x="159" y="95" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#18181B">Engineer Browser UI</text>
+  <text x="159" y="118" text-anchor="middle" font-family="monospace" font-size="11" fill="#115E59">4 Live Tabs · URL Hash State</text>
+
+  <rect x="320" y="62" width="250" height="80" fill="#DBEAFE" stroke="#18181B" stroke-width="2" />
+  <text x="445" y="95" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#18181B">Amazon CloudFront</text>
+  <text x="445" y="118" text-anchor="middle" font-family="monospace" font-size="11" fill="#1E3A8A">/* -&gt; S3 OAC · /api/* -&gt; Lambda</text>
+
+  <rect x="616" y="62" width="265" height="80" fill="#DCFCE7" stroke="#18181B" stroke-width="2" />
+  <text x="748" y="95" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#18181B">Private S3 Bucket (OAC)</text>
+  <text x="748" y="118" text-anchor="middle" font-family="monospace" font-size="11" fill="#065F46">Public Access Blocked</text>
+
+  <rect x="920" y="62" width="256" height="80" fill="#FEF3C7" stroke="#18181B" stroke-width="2" />
+  <text x="1048" y="95" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#18181B">AWS Lambda Python 3.12</text>
+  <text x="1048" y="118" text-anchor="middle" font-family="monospace" font-size="11" fill="#92400E">devops_chat_eval/server.py</text>
+
+  <!-- Layer 2: Space Isolation & Memory -->
+  <rect x="24" y="182" width="1172" height="154" fill="#F0FDFA" stroke="#0F766E" stroke-width="2" stroke-dasharray="8 5" />
+  <text x="40" y="208" font-family="sans-serif" font-size="16" font-weight="800" fill="#0F766E">2. Isolated Customer Spaces, Multi-Turn Chat Memory &amp; Pre-Deploy Diff Risk Engine</text>
+
+  <rect x="44" y="226" width="356" height="92" fill="#FFFFFF" stroke="#18181B" stroke-width="2" />
+  <text x="222" y="258" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#18181B">Control/Data Plane Space Store</text>
+  <text x="222" y="280" text-anchor="middle" font-family="monospace" font-size="11" fill="#0F766E">SQLite WAL · 3 Spaces · 14 Incidents</text>
+  <text x="222" y="300" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#52514E">0 Cross-Tenant Leaks</text>
+
+  <rect x="432" y="226" width="356" height="92" fill="#FFFFFF" stroke="#18181B" stroke-width="2" />
+  <text x="610" y="258" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#18181B">Hybrid BM25 + Topology Graph</text>
+  <text x="610" y="280" text-anchor="middle" font-family="monospace" font-size="11" fill="#1D4ED8">chat_memory.py · 2-Hop Expansion</text>
+  <text x="610" y="300" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#52514E">Session Coreference + Citation Gate</text>
+
+  <rect x="820" y="226" width="356" height="92" fill="#FFFFFF" stroke="#18181B" stroke-width="2" />
+  <text x="998" y="258" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#18181B">Pre-Deploy Diff Risk Analyzer</text>
+  <text x="998" y="280" text-anchor="middle" font-family="monospace" font-size="11" fill="#B45309">deploy_risk.py · 7 Static Rules</text>
+  <text x="998" y="300" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#52514E">Matches Past Outage Signatures</text>
+
+  <!-- Layer 3: COE Workflow & Prompt Judge -->
+  <rect x="24" y="358" width="1172" height="154" fill="#FFFBEB" stroke="#B45309" stroke-width="2" stroke-dasharray="8 5" />
+  <text x="40" y="384" font-family="sans-serif" font-size="16" font-weight="800" fill="#92400E">3. Fact-Verified AWS COE Workflow &amp; Position-Swapped LLM-as-a-Judge Lab</text>
+
+  <rect x="44" y="402" width="548" height="92" fill="#FFFFFF" stroke="#18181B" stroke-width="2" />
+  <text x="318" y="434" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#18181B">Verified AWS COE Postmortem Pipeline</text>
+  <text x="318" y="456" text-anchor="middle" font-family="monospace" font-size="11" fill="#065F46">coe_workflow.py · Extract -&gt; Draft -&gt; Grounding Gate</text>
+  <text x="318" y="476" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#52514E">Strips Ungrounded Metrics, Timestamps &amp; Services</text>
+
+  <rect x="628" y="402" width="548" height="92" fill="#FFFFFF" stroke="#18181B" stroke-width="2" />
+  <text x="902" y="434" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#18181B">Position-Swapped LLM-as-a-Judge Arena</text>
+  <text x="902" y="456" text-anchor="middle" font-family="monospace" font-size="11" fill="#6D28D9">judge_arena.py · Judge(A,B) + Judge(B,A) · Cohen's kappa</text>
+  <text x="902" y="476" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#52514E">16 Golden Cases · Automated PROMOTE / HOLD Gate</text>
+
+  <!-- Layer 4: Amazon Bedrock -->
+  <rect x="24" y="534" width="1172" height="150" fill="#F3E8FF" stroke="#6D28D9" stroke-width="2" stroke-dasharray="8 5" />
+  <text x="40" y="560" font-family="sans-serif" font-size="16" font-weight="800" fill="#5B21B6">4. On-Demand Foundation Models via Amazon Bedrock Converse API ($0.00 Idle Compute)</text>
+
+  <rect x="44" y="578" width="548" height="88" fill="#FFFFFF" stroke="#18181B" stroke-width="2" />
+  <text x="318" y="612" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#18181B">Amazon Nova Lite (us.amazon.nova-lite-v1:0)</text>
+  <text x="318" y="636" text-anchor="middle" font-family="monospace" font-size="11" fill="#5B21B6">Multi-Turn Space Chat · Diff Mitigations · 5-Section COE Drafts</text>
+
+  <rect x="628" y="578" width="548" height="88" fill="#FFFFFF" stroke="#18181B" stroke-width="2" />
+  <text x="902" y="612" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#18181B">Amazon Nova Micro (us.amazon.nova-micro-v1:0)</text>
+  <text x="902" y="636" text-anchor="middle" font-family="monospace" font-size="11" fill="#0F766E">High-Throughput Prompt Candidate Eval &amp; Swapped Pairwise Judging</text>
+</svg>

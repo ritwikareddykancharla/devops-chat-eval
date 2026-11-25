@@ -1,0 +1,659 @@
+{
+  "service": "devops-chat-eval",
+  "benchmark_timestamp_utc": "2026-11-25T22:41:27Z",
+  "environment": {
+    "python_version": "3.14.6",
+    "platform": "Darwin 25.6.0 (arm64)",
+    "aws_region": "us-west-2",
+    "chat_and_coe_model": "us.amazon.nova-lite-v1:0",
+    "judge_and_tuning_model": "us.amazon.nova-micro-v1:0",
+    "state_store": "SQLite WAL (isolated per-Space Control/Data Plane)"
+  },
+  "headline_kpis": {
+    "spaces_isolated": 3,
+    "incidents_indexed": 14,
+    "cross_tenant_leaks": 0,
+    "chat_turns_evaluated": 8,
+    "chat_top3_recall_hits": 8,
+    "chat_top3_recall_pct": 100.0,
+    "chat_grounded_turns": 8,
+    "retrieval_p50_ms": 3.518,
+    "retrieval_p95_ms": 7.098,
+    "diff_cases_total": 10,
+    "diff_risky_caught": 6,
+    "diff_risky_total": 6,
+    "diff_hazard_recall_pct": 100.0,
+    "diff_safe_total": 4,
+    "diff_false_positives": 0,
+    "diff_eval_p50_ms": 3.406,
+    "diff_eval_p95_ms": 7.374,
+    "coe_runs_total": 8,
+    "coe_injected_hallucinations_total": 12,
+    "coe_injected_hallucinations_caught": 12,
+    "coe_hallucination_catch_pct": 100.0,
+    "coe_post_gate_ungrounded_claims": 0,
+    "coe_gate_p50_ms": 1.175,
+    "eval_golden_cases": 16,
+    "v3_win_rate_vs_v1_pct": 93.8,
+    "v3_wins_vs_v1": 15,
+    "v3_telemetry_recall_pct": 87.5,
+    "v3_promotion_decision": "PROMOTE",
+    "judge_cohens_kappa": 0.8072,
+    "judge_human_agreement_count": 14,
+    "judge_human_agreement_pct": 87.5,
+    "judge_position_consistency_pct": 81.2,
+    "judge_position_flips_caught": 3,
+    "judge_pair_p50_ms": 942.0,
+    "judge_pair_p95_ms": 5822.0,
+    "nova_lite_p50_ms": 1378.0,
+    "nova_lite_p95_ms": 2973.0,
+    "nova_micro_p50_ms": 665.0,
+    "nova_micro_p95_ms": 1490.0,
+    "bedrock_calls_total": 151,
+    "bedrock_tokens_total": 144258,
+    "bedrock_total_cost_usd": 0.00824,
+    "peak_memory_kib": 23731.7,
+    "suite_wall_seconds": 97.41
+  },
+  "prompt_leaderboard": [
+    {
+      "prompt_id": "v1_baseline",
+      "label": "v1 \u00b7 Baseline Zero-Shot Prompt",
+      "cases": 16,
+      "wins_vs_v1": 0,
+      "debiased_win_rate_vs_v1_pct": 0.0,
+      "telemetry_recall_pct": 57.8,
+      "mean_rubric_score_5": 2.45,
+      "position_consistency_pct": 100.0,
+      "gen_p50_ms": 953.0,
+      "gen_p95_ms": 1336.0,
+      "cost_per_1k_calls_usd": 0.0326,
+      "promotion_decision": "BASELINE"
+    },
+    {
+      "prompt_id": "v2_fewshot_cot",
+      "label": "v2 \u00b7 Few-Shot Chain-of-Thought Prompt",
+      "cases": 16,
+      "wins_vs_v1": 12,
+      "debiased_win_rate_vs_v1_pct": 75.0,
+      "telemetry_recall_pct": 76.0,
+      "mean_rubric_score_5": 4.02,
+      "position_consistency_pct": 87.5,
+      "gen_p50_ms": 1157.0,
+      "gen_p95_ms": 1490.0,
+      "cost_per_1k_calls_usd": 0.0515,
+      "promotion_decision": "HOLD"
+    },
+    {
+      "prompt_id": "v3_citation_constrained",
+      "label": "v3 \u00b7 Citation & Blast-Radius Constrained Prompt",
+      "cases": 16,
+      "wins_vs_v1": 15,
+      "debiased_win_rate_vs_v1_pct": 93.8,
+      "telemetry_recall_pct": 87.5,
+      "mean_rubric_score_5": 4.25,
+      "position_consistency_pct": 93.8,
+      "gen_p50_ms": 712.0,
+      "gen_p95_ms": 959.0,
+      "cost_per_1k_calls_usd": 0.0335,
+      "promotion_decision": "PROMOTE"
+    }
+  ],
+  "judge_calibration_rows": [
+    {
+      "case_id": "EVAL-01",
+      "incident_id": "INC-201",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 942.0
+    },
+    {
+      "case_id": "EVAL-02",
+      "incident_id": "INC-202",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 867.0
+    },
+    {
+      "case_id": "EVAL-03",
+      "incident_id": "INC-203",
+      "pair": "v1_baseline vs v3_citation_constrained",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "B",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 1071.0
+    },
+    {
+      "case_id": "EVAL-04",
+      "incident_id": "INC-204",
+      "pair": "v3_citation_constrained vs v2_fewshot_cot",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "A",
+      "agreed": false,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 1017.0
+    },
+    {
+      "case_id": "EVAL-05",
+      "incident_id": "INC-205",
+      "pair": "v1_baseline vs v3_citation_constrained",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "B",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 864.0
+    },
+    {
+      "case_id": "EVAL-06",
+      "incident_id": "INC-206",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 6984.0
+    },
+    {
+      "case_id": "EVAL-07",
+      "incident_id": "INC-207",
+      "pair": "v1_baseline vs v3_citation_constrained",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "B",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 849.0
+    },
+    {
+      "case_id": "EVAL-08",
+      "incident_id": "INC-208",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 5822.0
+    },
+    {
+      "case_id": "EVAL-09",
+      "incident_id": "INC-209",
+      "pair": "v2_fewshot_cot vs v3_citation_constrained",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "B",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 972.0
+    },
+    {
+      "case_id": "EVAL-10",
+      "incident_id": "INC-210",
+      "pair": "v3_citation_constrained vs v3_citation_constrained",
+      "forward_winner": "A",
+      "swapped_winner": "B",
+      "debiased_winner": "TIE",
+      "human_label": "TIE",
+      "agreed": true,
+      "position_consistent": false,
+      "bias_flag": "POSITION_BIAS_CAUGHT",
+      "judge_pair_ms": 919.0
+    },
+    {
+      "case_id": "EVAL-11",
+      "incident_id": "INC-211",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 1091.0
+    },
+    {
+      "case_id": "EVAL-12",
+      "incident_id": "INC-212",
+      "pair": "v1_baseline vs v3_citation_constrained",
+      "forward_winner": "B",
+      "swapped_winner": "B",
+      "debiased_winner": "B",
+      "human_label": "B",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 765.0
+    },
+    {
+      "case_id": "EVAL-13",
+      "incident_id": "INC-213",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "A",
+      "debiased_winner": "A",
+      "human_label": "A",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "CONSISTENT",
+      "judge_pair_ms": 924.0
+    },
+    {
+      "case_id": "EVAL-14",
+      "incident_id": "INC-214",
+      "pair": "v2_fewshot_cot vs v2_fewshot_cot",
+      "forward_winner": "TIE",
+      "swapped_winner": "A",
+      "debiased_winner": "TIE",
+      "human_label": "TIE",
+      "agreed": true,
+      "position_consistent": true,
+      "bias_flag": "MARGINAL_TIE",
+      "judge_pair_ms": 1022.0
+    },
+    {
+      "case_id": "EVAL-15",
+      "incident_id": "INC-201",
+      "pair": "v3_citation_constrained vs v1_baseline",
+      "forward_winner": "A",
+      "swapped_winner": "B",
+      "debiased_winner": "TIE",
+      "human_label": "A",
+      "agreed": false,
+      "position_consistent": false,
+      "bias_flag": "POSITION_BIAS_CAUGHT",
+      "judge_pair_ms": 928.0
+    },
+    {
+      "case_id": "EVAL-16",
+      "incident_id": "INC-207",
+      "pair": "v1_baseline vs v1_baseline",
+      "forward_winner": "B",
+      "swapped_winner": "A",
+      "debiased_winner": "TIE",
+      "human_label": "TIE",
+      "agreed": true,
+      "position_consistent": false,
+      "bias_flag": "POSITION_BIAS_CAUGHT",
+      "judge_pair_ms": 897.0
+    }
+  ],
+  "diff_benchmark_results": [
+    {
+      "preset_id": "diff-timeout-cascade",
+      "title": "Checkout HTTP Client Timeout Lowered Below Payment-Gateway p99",
+      "space_id": "space-prod-payments",
+      "service": "checkout-api",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 100,
+      "matched_incidents": [
+        "INC-202",
+        "INC-203"
+      ],
+      "deterministic_eval_ms": 7.374,
+      "bedrock_latency_ms": 1007.0
+    },
+    {
+      "preset_id": "diff-rds-pool-overcommit",
+      "title": "ECS Task Pool Size x Replica Count Exceeds Aurora max_connections",
+      "space_id": "space-prod-payments",
+      "service": "checkout-api",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 76,
+      "matched_incidents": [
+        "INC-201"
+      ],
+      "deterministic_eval_ms": 3.72,
+      "bedrock_latency_ms": 860.0
+    },
+    {
+      "preset_id": "diff-sqs-visibility-mismatch",
+      "title": "Order-Router Lambda Timeout Raised Above SQS VisibilityTimeout",
+      "space_id": "space-prod-fulfillment",
+      "service": "order-router",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 72,
+      "matched_incidents": [
+        "INC-207"
+      ],
+      "deterministic_eval_ms": 1.798,
+      "bedrock_latency_ms": 795.0
+    },
+    {
+      "preset_id": "diff-iam-wildcard-regression",
+      "title": "Tenant-RBAC Policy Bundle Introduces Unscoped Wildcard Resource",
+      "space_id": "space-prod-identity",
+      "service": "tenant-rbac",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 78,
+      "matched_incidents": [
+        "INC-213"
+      ],
+      "deterministic_eval_ms": 3.654,
+      "bedrock_latency_ms": 956.0
+    },
+    {
+      "preset_id": "diff-safe-hardened-rollout",
+      "title": "Safe Hardened Rollout: Bounded Pool + Jittered Retry + Circuit Breaker",
+      "space_id": "space-prod-payments",
+      "service": "fraud-scorer",
+      "expected_verdict": "SAFE_TO_DEPLOY",
+      "observed_verdict": "SAFE_TO_DEPLOY",
+      "risk_score": 8,
+      "matched_incidents": [],
+      "deterministic_eval_ms": 4.031,
+      "bedrock_latency_ms": 887.0
+    },
+    {
+      "preset_id": "diff-cb-disabled-fraud",
+      "title": "Fraud-Scorer Disables Circuit Breaker With 12 Retries",
+      "space_id": "space-prod-payments",
+      "service": "fraud-scorer",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 72,
+      "matched_incidents": [
+        "INC-203"
+      ],
+      "deterministic_eval_ms": 5.001,
+      "bedrock_latency_ms": 0.0
+    },
+    {
+      "preset_id": "diff-ssm-hotpath-edge",
+      "title": "Session-Edge Adds Per-Request SSM Parameter Fetch in Handler",
+      "space_id": "space-prod-identity",
+      "service": "session-edge",
+      "expected_verdict": "BLOCK_DEPLOY",
+      "observed_verdict": "BLOCK_DEPLOY",
+      "risk_score": 66,
+      "matched_incidents": [
+        "INC-212"
+      ],
+      "deterministic_eval_ms": 3.406,
+      "bedrock_latency_ms": 0.0
+    },
+    {
+      "preset_id": "diff-safe-sqs-6x-timeout",
+      "title": "Safe Order-Router Queue Visibility Set to 6x Worker Timeout",
+      "space_id": "space-prod-fulfillment",
+      "service": "order-router",
+      "expected_verdict": "SAFE_TO_DEPLOY",
+      "observed_verdict": "SAFE_TO_DEPLOY",
+      "risk_score": 8,
+      "matched_incidents": [],
+      "deterministic_eval_ms": 2.453,
+      "bedrock_latency_ms": 0.0
+    },
+    {
+      "preset_id": "diff-safe-scoped-iam",
+      "title": "Safe Scoped SpaceId PrincipalTag IAM Policy Update",
+      "space_id": "space-prod-identity",
+      "service": "tenant-rbac",
+      "expected_verdict": "SAFE_TO_DEPLOY",
+      "observed_verdict": "SAFE_TO_DEPLOY",
+      "risk_score": 8,
+      "matched_incidents": [],
+      "deterministic_eval_ms": 2.474,
+      "bedrock_latency_ms": 0.0
+    },
+    {
+      "preset_id": "diff-safe-checkout-timeout",
+      "title": "Safe Checkout Client Timeout Above Downstream p99 (2700 ms)",
+      "space_id": "space-prod-payments",
+      "service": "checkout-api",
+      "expected_verdict": "SAFE_TO_DEPLOY",
+      "observed_verdict": "SAFE_TO_DEPLOY",
+      "risk_score": 8,
+      "matched_incidents": [],
+      "deterministic_eval_ms": 2.281,
+      "bedrock_latency_ms": 0.0
+    }
+  ],
+  "coe_benchmark_results": [
+    {
+      "incident_id": "INC-201",
+      "space_id": "space-prod-payments",
+      "probe_injected": false,
+      "clauses_checked": 15,
+      "flagged_claims_count": 0,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 2.002,
+      "bedrock_latency_ms": 2378.0
+    },
+    {
+      "incident_id": "INC-201",
+      "space_id": "space-prod-payments",
+      "probe_injected": true,
+      "clauses_checked": 18,
+      "flagged_claims_count": 5,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 0.654,
+      "bedrock_latency_ms": 2468.0
+    },
+    {
+      "incident_id": "INC-206",
+      "space_id": "space-prod-fulfillment",
+      "probe_injected": false,
+      "clauses_checked": 17,
+      "flagged_claims_count": 0,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 1.351,
+      "bedrock_latency_ms": 3649.0
+    },
+    {
+      "incident_id": "INC-206",
+      "space_id": "space-prod-fulfillment",
+      "probe_injected": true,
+      "clauses_checked": 20,
+      "flagged_claims_count": 5,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 0.991,
+      "bedrock_latency_ms": 2427.0
+    },
+    {
+      "incident_id": "INC-207",
+      "space_id": "space-prod-fulfillment",
+      "probe_injected": false,
+      "clauses_checked": 14,
+      "flagged_claims_count": 1,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 1.175,
+      "bedrock_latency_ms": 2423.0
+    },
+    {
+      "incident_id": "INC-207",
+      "space_id": "space-prod-fulfillment",
+      "probe_injected": true,
+      "clauses_checked": 17,
+      "flagged_claims_count": 6,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 0.926,
+      "bedrock_latency_ms": 2249.0
+    },
+    {
+      "incident_id": "INC-211",
+      "space_id": "space-prod-identity",
+      "probe_injected": false,
+      "clauses_checked": 14,
+      "flagged_claims_count": 1,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 1.332,
+      "bedrock_latency_ms": 2973.0
+    },
+    {
+      "incident_id": "INC-211",
+      "space_id": "space-prod-identity",
+      "probe_injected": true,
+      "clauses_checked": 17,
+      "flagged_claims_count": 6,
+      "post_gate_ungrounded": 0,
+      "gate_eval_ms": 0.384,
+      "bedrock_latency_ms": 2129.0
+    }
+  ],
+  "chat_benchmark_results": [
+    {
+      "session_id": "bench-sess-payments-1",
+      "space_id": "space-prod-payments",
+      "turn_number": 1,
+      "expected_incident": "INC-201",
+      "retrieved_top3": [
+        "INC-201",
+        "INC-205",
+        "INC-203"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 2.218,
+      "bedrock_latency_ms": 1164.0,
+      "tokens": 1584
+    },
+    {
+      "session_id": "bench-sess-payments-1",
+      "space_id": "space-prod-payments",
+      "turn_number": 2,
+      "expected_incident": "INC-203",
+      "retrieved_top3": [
+        "INC-201",
+        "INC-203",
+        "INC-202"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 3.404,
+      "bedrock_latency_ms": 1378.0,
+      "tokens": 1819
+    },
+    {
+      "session_id": "bench-sess-payments-2",
+      "space_id": "space-prod-payments",
+      "turn_number": 1,
+      "expected_incident": "INC-202",
+      "retrieved_top3": [
+        "INC-202",
+        "INC-205",
+        "INC-201"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 3.393,
+      "bedrock_latency_ms": 1065.0,
+      "tokens": 1660
+    },
+    {
+      "session_id": "bench-sess-payments-2",
+      "space_id": "space-prod-payments",
+      "turn_number": 2,
+      "expected_incident": "INC-205",
+      "retrieved_top3": [
+        "INC-205",
+        "INC-202",
+        "INC-201"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 7.098,
+      "bedrock_latency_ms": 1521.0,
+      "tokens": 1848
+    },
+    {
+      "session_id": "bench-sess-fulfillment-1",
+      "space_id": "space-prod-fulfillment",
+      "turn_number": 1,
+      "expected_incident": "INC-206",
+      "retrieved_top3": [
+        "INC-206",
+        "INC-207",
+        "INC-209"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 4.685,
+      "bedrock_latency_ms": 820.0,
+      "tokens": 1445
+    },
+    {
+      "session_id": "bench-sess-fulfillment-1",
+      "space_id": "space-prod-fulfillment",
+      "turn_number": 2,
+      "expected_incident": "INC-209",
+      "retrieved_top3": [
+        "INC-209",
+        "INC-206",
+        "INC-207"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 3.518,
+      "bedrock_latency_ms": 1089.0,
+      "tokens": 1614
+    },
+    {
+      "session_id": "bench-sess-identity-1",
+      "space_id": "space-prod-identity",
+      "turn_number": 1,
+      "expected_incident": "INC-211",
+      "retrieved_top3": [
+        "INC-211",
+        "INC-212",
+        "INC-213"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 2.733,
+      "bedrock_latency_ms": 1557.0,
+      "tokens": 1536
+    },
+    {
+      "session_id": "bench-sess-identity-1",
+      "space_id": "space-prod-identity",
+      "turn_number": 2,
+      "expected_incident": "INC-212",
+      "retrieved_top3": [
+        "INC-211",
+        "INC-212",
+        "INC-213"
+      ],
+      "recall_hit": true,
+      "grounded": true,
+      "retrieval_ms": 5.421,
+      "bedrock_latency_ms": 1045.0,
+      "tokens": 1698
+    }
+  ]
+}
