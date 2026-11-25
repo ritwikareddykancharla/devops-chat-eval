@@ -257,8 +257,9 @@ def compute_cohens_kappa(
 def score_response_rubric(text: str, case: Dict[str, Any], inc: Dict[str, Any]) -> Dict[str, Any]:
     """Deterministic telemetry grounding & completeness check used alongside LLM-as-a-Judge."""
     lower = text.lower()
+    lower_norm = re.sub(r"(?<=\d),(?=\d{3}\b)", "", lower)
     req = case["required_tokens"]
-    matched = [tok for tok in req if tok.lower() in lower]
+    matched = [tok for tok in req if tok.lower() in lower or tok.lower() in lower_norm]
     recall = round(len(matched) / float(max(1, len(req))), 4)
 
     has_inc_bracket = f"[{inc['incident_id'].lower()}]" in lower or inc["incident_id"].lower() in lower
